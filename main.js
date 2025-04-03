@@ -7805,11 +7805,23 @@ async function main() {
 	});
 
 	var currentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
+	
 	if (timezones.includes(currentTimezone)) {
-		var el = getById("languagesList").querySelector("li a[data-tz*='" + currentTimezone + "']"); // select language li
-		el.parentElement.removeChild(el); // remove it
-		getById("languagesList").insertBefore(el, getById("languagesList").querySelector("li:nth-child(2)")); // insert it after English
+		var list = getById("languagesList");
+		// Find the link element matching the timezone
+		var el = list.querySelector("li a[data-tz*='" + currentTimezone + "']");
+	
+		if (el) {
+			var targetLi = el.parentElement; // Get the parent <li>
+			var firstLi = list.querySelector("li:first-child"); // Get the first li (English)
+	
+			// Only move if it's not already the first or second element
+			if (targetLi && firstLi && targetLi !== firstLi && targetLi !== firstLi.nextSibling) {
+				// Insert the <li> after the first element (English)
+				list.insertBefore(targetLi, firstLi.nextSibling);
+				// The original <li> is automatically removed from its old position when inserted elsewhere.
+			}
+		}
 	}
 
 	var visAudioTimeout = null;
