@@ -1,8 +1,14 @@
+<!-- speedtest.html !-->
 <html>
 	<head>
 		<link rel="stylesheet" href="./lineawesome/css/line-awesome.min.css" />
 		<link rel="stylesheet" href="./speedtest.css?ver=7" />
 		<meta charset="utf8" />
+		<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
+		<link id="favicon1" rel="icon" type="image/png" sizes="32x32" href="./media/favicon-32x32.png" />
+		<link id="favicon2" rel="icon" type="image/png" sizes="16x16" href="./media/favicon-16x16.png" />
+		<link id="favicon3" rel="icon" href="./media/favicon.ico" />
+		<link rel="alternate" type="text/markdown" href="/rawdoc.md" title="Developer and User Documentation">
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>VDON Speed Test</title>
 	</head>
@@ -230,7 +236,7 @@
 				iframe.allowfullscreen ="true";
 
 				//iframe.allow = "autoplay";
-				var srcString =	"./?push=" + streamID + "&cleanoutput&privacy&"+testType+"&audiodevice=0&fullscreen&transparent&remote&speedtest="+zone;
+				var srcString =	"./?push=" + streamID + "&cleanish&privacy&"+testType+"&audiodevice=0&fullscreen&transparent&remote&speedtest="+zone;
 				
 				if (urlParams.has("turn")) {
 					srcString = srcString + "&turn=" + urlParams.get("turn");
@@ -274,7 +280,7 @@
 
 				iframe.allow = "autoplay";
 				// I've removed &privacy from the view link, and left it just on the push link. This hopefully solves compatibility issues
-				var srcString = "./?view=" + streamID + "&cleanoutput&noaudio&scale=0&speedtest="+zone; // No TURN servers set on the reciever. Don't want to query for TURN servers needlessly.
+				var srcString = "./?view=" + streamID + "&cleanish&noaudio&scale=0&speedtest="+zone; // No TURN servers set on the reciever. Don't want to query for TURN servers needlessly.
 
 				if (urlParams.has("turn")) {
 					srcString = srcString + "&turn=" + urlParams.get("turn");

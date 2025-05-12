@@ -186,14 +186,33 @@
 				document.getElementById("page2").classList.remove("hidden");
 			}
 			
-			function next2(){
-				document.getElementById("page2").classList.add("hidden");
-				document.getElementById("page2a").classList.remove("hidden");
-				setTimeout(function(){
-					if (document.getElementById("playButton") && !document.getElementById("playButton").skip){
-						next2a();
-					}
-				},10000);
+			async function runCodecDetection() {
+			  try {
+				console.log("Starting advanced codec detection...");
+				const detectedCodecs = await detectCodecs();
+				logged.push({detectedCodecs});
+				console.log("Codec detection complete", detectedCodecs);
+				return detectedCodecs;
+			  } catch (error) {
+				console.error("Error in codec detection:", error);
+				logged.push({codecDetectionError: error.message});
+				return null;
+			  }
+			}
+
+			// Call codec detection at appropriate time
+			function next2() {
+			  document.getElementById("page2").classList.add("hidden");
+			  document.getElementById("page2a").classList.remove("hidden");
+			  
+			  // Run codec detection in parallel with speed test loading
+			  runCodecDetection();
+			  
+			  setTimeout(function() {
+				if (document.getElementById("playButton") && !document.getElementById("playButton").skip) {
+				  next2a();
+				}
+			  }, 10000);
 			}
 			
 			function next2a(){
@@ -544,7 +563,623 @@
 			<!-- <option value="sing1">Singapore</option> -->
 			<!-- <option value="ind1">Mumbai, India</option> -->
 			<!-- <option value="pol1">Warsaw, Poland</option> -->
+			
+			function detectCodecs() {
+			  const codecData = {
+				video: {},
+				audio: {},
+				webrtc: {},
+				webcodec: {},
+				mediaCapabilities: {}
+			  };
 
+			  // Basic mimeType detection function - returns all supported mime types
+			  function getSupportedMimeTypes(media, types, codecs) {
+				const supported = [];
+				
+				// First check simple types
+				types.forEach(type => {
+				  const mimeType = `${media}/${type}`;
+				  if (MediaRecorder.isTypeSupported(mimeType)) {
+					supported.push(mimeType);
+				  }
+				});
+				
+				// Then check with codecs
+				types.forEach(type => {
+				  const mimeType = `${media}/${type}`;
+				  
+				  codecs.forEach(codec => {
+					if (!codec) return;
+					
+					const variation = `${mimeType};codecs=${codec.toLowerCase()}`;
+					if (MediaRecorder.isTypeSupported(variation)) {
+					  supported.push(variation);
+					  
+					  const codecKey = codec.toLowerCase();
+					  if (media === 'video') {
+						codecData.video[codecKey] = codecData.video[codecKey] || {};
+						codecData.video[codecKey].mediaRecorder = true;
+						codecData.video[codecKey].canEncode = true;
+					  } else {
+						codecData.audio[codecKey] = codecData.audio[codecKey] || {};
+						codecData.audio[codecKey].mediaRecorder = true;
+						codecData.audio[codecKey].canEncode = true;
+					  }
+					}
+				  });
+				  
+				  // Check codec combinations for video/webm
+				  if (media === 'video' && type === 'webm') {
+					codecs.forEach(videoCodec => {
+					  if (!videoCodec) return;
+					  
+					  const audioCodecs = ['opus', 'vorbis'];
+					  audioCodecs.forEach(audioCodec => {
+						const variation = `${mimeType};codecs=${videoCodec.toLowerCase()},${audioCodec}`;
+						if (MediaRecorder.isTypeSupported(variation)) {
+						  supported.push(variation);
+						}
+					  });
+					});
+				  }
+				});
+				
+				return supported;
+			  }
+
+			  // WebRTC hardware acceleration checker
+			  async function checkWebRTCHardwareAcceleration(codec) {
+				return new Promise(async (resolve) => {
+				  try {
+					const config = {
+					  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+					  iceCandidatePoolSize: 0
+					};
+					
+					const pc1 = new RTCPeerConnection(config);
+					const pc2 = new RTCPeerConnection(config);
+					
+					pc1.createDataChannel('test', {ordered: true});
+					
+					pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate);
+					pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate);
+					
+					const canvas = document.createElement('canvas');
+					canvas.width = 1280;
+					canvas.height = 720;
+					
+					const ctx = canvas.getContext('2d');
+					ctx.fillStyle = '#3498db';
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+					
+					const startTime = Date.now();
+					function animateCanvas() {
+					  const elapsed = Date.now() - startTime;
+					  ctx.fillStyle = '#3498db';
+					  ctx.fillRect(0, 0, canvas.width, canvas.height);
+					  
+					  ctx.fillStyle = '#e74c3c';
+					  const x = 100 + Math.sin(elapsed / 500) * 100;
+					  const y = canvas.height / 2 + Math.cos(elapsed / 500) * 100;
+					  ctx.beginPath();
+					  ctx.arc(x, y, 50, 0, Math.PI * 2);
+					  ctx.fill();
+					  
+					  if (Date.now() - startTime < 3000) {
+						requestAnimationFrame(animateCanvas);
+					  }
+					}
+					
+					animateCanvas();
+					const stream = canvas.captureStream(30);
+					
+					stream.getVideoTracks().forEach(track => {
+					  pc1.addTrack(track, stream);
+					});
+					
+					const transceiver = pc1.getTransceivers()[0];
+					const codecs = RTCRtpSender.getCapabilities('video').codecs;
+					
+					const targetCodec = codecs.find(c => {
+					  return c.mimeType.toLowerCase().includes(codec.toLowerCase());
+					});
+					
+					if (targetCodec) {
+					  transceiver.setCodecPreferences([targetCodec]);
+					}
+					
+					const offer = await pc1.createOffer();
+					await pc1.setLocalDescription(offer);
+					await pc2.setRemoteDescription(offer);
+					const answer = await pc2.createAnswer();
+					await pc2.setLocalDescription(answer);
+					await pc1.setRemoteDescription(answer);
+					
+					setTimeout(async () => {
+					  let hardwareAccelerated = false;
+					  let profile = null;
+					  
+					  try {
+						const stats = await pc1.getStats();
+						stats.forEach(stat => {
+						  if (stat.type === 'outbound-rtp' && stat.kind === 'video') {
+							if (stat.encoderImplementation) {
+							  const implementation = stat.encoderImplementation.toLowerCase();
+							  hardwareAccelerated = implementation.includes('hardware') || 
+													implementation === 'externalencoder' || 
+													implementation === 'mediafoundationvideoacceleration' ||
+													implementation.includes('accelerator');
+							}
+							
+							if (stat.codecId) {
+							  stats.forEach(s => {
+								if (s.id === stat.codecId && s.sdpFmtpLine) {
+								  const match = s.sdpFmtpLine.match(/profile-level-id=([0-9a-f]+)/i);
+								  if (match) {
+									profile = match[1];
+								  }
+								}
+							  });
+							}
+						  }
+						});
+					  } catch (e) {
+						console.error(`Error getting WebRTC stats: ${e.message}`);
+					  }
+					  
+					  pc1.close();
+					  pc2.close();
+					  stream.getTracks().forEach(track => track.stop());
+					  
+					  resolve({ 
+						hardwareAccelerated, 
+						profile,
+						webrtc: true,
+						canEncode: true,
+						canDecode: true,
+						webrtcHwEncoding: hardwareAccelerated
+					  });
+					}, 2000);
+				  } catch (error) {
+					console.error(`WebRTC check failed for ${codec}: ${error.message}`);
+					resolve({ webrtc: false });
+				  }
+				});
+			  }
+
+			  // WebCodec encoder detection
+			  async function checkWebCodecEncoder(codec, width = 1280, height = 720, framerate = 30) {
+				if (!('VideoEncoder' in window)) {
+				  return { webcodec: false };
+				}
+				
+				let result = { webcodec: false };
+				
+				try {
+				  const codecMapping = {
+					'vp8': 'vp8',
+					'vp9': 'vp09.00.10.08',
+					'av1': 'av01.0.04M.08',
+					'h264': 'avc1.42001E',
+					'h265': 'hev1.1.6.L93.B0'
+				  };
+				  
+				  const webcodecFormat = codecMapping[codec.toLowerCase()] || codec;
+				  
+				  // Check hardware acceleration with prefer-hardware
+				  const hwConfig = {
+					codec: webcodecFormat,
+					hardwareAcceleration: 'prefer-hardware',
+					width,
+					height,
+					bitrate: 2000000,
+					framerate
+				  };
+				  
+				  const hwSupport = await VideoEncoder.isConfigSupported(hwConfig);
+				  
+				  if (hwSupport && hwSupport.supported) {
+					result = { 
+					  webcodec: true,
+					  hardwareAccelerated: true,
+					  config: hwSupport.config,
+					  canEncode: true
+					};
+				  } else {
+					// Check with prefer-software
+					const swConfig = {
+					  codec: webcodecFormat,
+					  hardwareAcceleration: 'prefer-software',
+					  width,
+					  height,
+					  bitrate: 2000000,
+					  framerate
+					};
+					
+					const swSupport = await VideoEncoder.isConfigSupported(swConfig);
+					
+					if (swSupport && swSupport.supported) {
+					  result = { 
+						webcodec: true,
+						hardwareAccelerated: false,
+						config: swSupport.config,
+						canEncode: true
+					  };
+					}
+				  }
+				} catch (error) {
+				  console.error(`WebCodec encoder check failed for ${codec}: ${error.message}`);
+				}
+				
+				return result;
+			  }
+
+			  // WebCodec decoder detection
+			  async function checkWebCodecDecoder(codec, width = 1280, height = 720, framerate = 30) {
+				if (!('VideoDecoder' in window)) {
+				  return { webcodec: false };
+				}
+				
+				let result = { webcodec: false };
+				
+				try {
+				  const codecMapping = {
+					'vp8': 'vp8',
+					'vp9': 'vp09.00.10.08',
+					'av1': 'av01.0.04M.08',
+					'h264': 'avc1.42001E',
+					'h265': 'hev1.1.6.L93.B0'
+				  };
+				  
+				  const webcodecFormat = codecMapping[codec.toLowerCase()] || codec;
+				  
+				  // Check hardware acceleration with prefer-hardware
+				  const hwConfig = {
+					codec: webcodecFormat,
+					hardwareAcceleration: 'prefer-hardware',
+					codedWidth: width,
+					codedHeight: height,
+					description: new Uint8Array(0)
+				  };
+				  
+				  const hwSupport = await VideoDecoder.isConfigSupported(hwConfig);
+				  
+				  if (hwSupport && hwSupport.supported) {
+					result = { 
+					  webcodec: true,
+					  hardwareAccelerated: true,
+					  config: hwSupport.config,
+					  canDecode: true
+					};
+				  } else {
+					// Check with prefer-software
+					const swConfig = {
+					  codec: webcodecFormat,
+					  hardwareAcceleration: 'prefer-software',
+					  codedWidth: width,
+					  codedHeight: height,
+					  description: new Uint8Array(0)
+					};
+					
+					const swSupport = await VideoDecoder.isConfigSupported(swConfig);
+					
+					if (swSupport && swSupport.supported) {
+					  result = { 
+						webcodec: true,
+						hardwareAccelerated: false,
+						config: swSupport.config,
+						canDecode: true
+					  };
+					}
+				  }
+				} catch (error) {
+				  console.error(`WebCodec decoder check failed for ${codec}: ${error.message}`);
+				}
+				
+				return result;
+			  }
+
+			  // Main detection function
+			  async function runDetection() {
+				// Define codec lists
+				const videoTypes = ["webm", "mp4", "x-matroska", "ogg"];
+				const audioTypes = ["webm", "mp4", "ogg", "x-matroska", "wav"];
+				
+				const videoCodecs = [
+				  "vp8", "vp9", "av1", "h264", "h265", 
+				  "vp9.0", "vp8.0", "avc1", "av1x", "h.264", "h.265", 
+				  "av01.0.04M.08", "vp09.00.10.08", "avc1.42001E"
+				];
+				
+				const audioCodecs = [
+				  "opus", "vorbis", "mp3", "aac", "pcm", 
+				  "mp4a.40.2", "mp4a", "L16", "wav", "flac"
+				];
+				
+				// 1. Detect MediaRecorder support
+				const supportedVideoTypes = getSupportedMimeTypes("video", videoTypes, videoCodecs);
+				const supportedAudioTypes = getSupportedMimeTypes("audio", audioTypes, audioCodecs);
+				console.log(`Found ${supportedVideoTypes.length} supported video MediaRecorder formats`);
+				console.log(`Found ${supportedAudioTypes.length} supported audio MediaRecorder formats`);
+				
+				// 2. Detect WebCodec support
+				if ('VideoEncoder' in window || 'VideoDecoder' in window) {
+				  console.log('Checking WebCodec support...');
+				  
+				  const resolutions = [
+					{ width: 640, height: 360 },
+					{ width: 1280, height: 720 },
+					{ width: 1920, height: 1080 }
+				  ];
+				  
+				  const webcodecCodecs = ['vp8', 'vp9', 'h264', 'av1', 'h265'];
+				  
+				  for (const codec of webcodecCodecs) {
+					for (const res of resolutions) {
+					  // Check encoder
+					  const encoderResult = await checkWebCodecEncoder(codec, res.width, res.height, 30);
+					  
+					  if (encoderResult.webcodec) {
+						codecData.video[codec] = codecData.video[codec] || {};
+						codecData.video[codec].webcodec = true;
+						codecData.video[codec].canEncode = true;
+						
+						// Store specific hardware acceleration for WebCodec encoder
+						codecData.video[codec].webcodecHwEncoding = encoderResult.hardwareAccelerated;
+						
+						// If any resolution has hardware acceleration, we'll mark it as supported
+						if (encoderResult.hardwareAccelerated) {
+						  codecData.video[codec].hardwareAccelerated = true;
+						  
+						  // Store the min resolution that allows hardware acceleration
+						  if (!codecData.video[codec].minHwResolution || 
+							res.width * res.height < 
+							codecData.video[codec].minHwResolution.width * codecData.video[codec].minHwResolution.height) {
+							codecData.video[codec].minHwResolution = res;
+							codecData.video[codec].resolutionLimit = `${res.width}x${res.height}+`;
+						  }
+						} 
+						// Only set hardware as false if it hasn't been set to true already
+						else if (codecData.video[codec].hardwareAccelerated !== true) {
+						  codecData.video[codec].hardwareAccelerated = false;
+						}
+						
+						if (encoderResult.config) {
+						  codecData.video[codec].webcodecConfig = codecData.video[codec].webcodecConfig || {};
+						  codecData.video[codec].webcodecConfig.encoder = encoderResult.config;
+						}
+					  }
+					  
+					  // Check decoder
+					  const decoderResult = await checkWebCodecDecoder(codec, res.width, res.height, 30);
+					  
+					  if (decoderResult.webcodec) {
+						codecData.video[codec] = codecData.video[codec] || {};
+						codecData.video[codec].webcodec = true;
+						codecData.video[codec].canDecode = true;
+						
+						// Store specific hardware acceleration for WebCodec decoder
+						codecData.video[codec].webcodecHwDecoding = decoderResult.hardwareAccelerated;
+						
+						// If any resolution has hardware acceleration, we'll mark it as supported
+						if (decoderResult.hardwareAccelerated) {
+						  codecData.video[codec].hardwareAccelerated = true;
+						  
+						  // Store the min resolution that allows hardware acceleration
+						  if (!codecData.video[codec].minHwResolution || 
+							res.width * res.height < 
+							codecData.video[codec].minHwResolution.width * codecData.video[codec].minHwResolution.height) {
+							codecData.video[codec].minHwResolution = res;
+							codecData.video[codec].resolutionLimit = `${res.width}x${res.height}+`;
+						  }
+						} 
+						// Only set hardware as false if it hasn't been set to true already
+						else if (codecData.video[codec].hardwareAccelerated !== true) {
+						  codecData.video[codec].hardwareAccelerated = false;
+						}
+						
+						if (decoderResult.config) {
+						  codecData.video[codec].webcodecConfig = codecData.video[codec].webcodecConfig || {};
+						  codecData.video[codec].webcodecConfig.decoder = decoderResult.config;
+						}
+					  }
+					}
+				  }
+				} else {
+				  console.log('WebCodec API not supported by this browser');
+				}
+				
+				// 3. Detect WebRTC support and hardware acceleration
+				if ('RTCPeerConnection' in window) {
+				  console.log('Checking WebRTC support and hardware acceleration...');
+				  
+				  const webrtcCodecs = ['VP8', 'VP9', 'AV1', 'H264'];
+				  
+				  for (const codec of webrtcCodecs) {
+					const result = await checkWebRTCHardwareAcceleration(codec);
+					
+					if (result.webrtc) {
+					  const normalizedCodec = codec.toLowerCase();
+					  codecData.video[normalizedCodec] = codecData.video[normalizedCodec] || {};
+					  codecData.video[normalizedCodec].webrtc = true;
+					  codecData.video[normalizedCodec].canEncode = true;
+					  codecData.video[normalizedCodec].canDecode = true;
+					  
+					  // Only update hardware acceleration if not already set
+					  if (result.hardwareAccelerated) {
+						codecData.video[normalizedCodec].hardwareAccelerated = true;
+					  } else if (codecData.video[normalizedCodec].hardwareAccelerated !== true) {
+						codecData.video[normalizedCodec].hardwareAccelerated = false;
+					  }
+					  
+					  if (result.profile) {
+						codecData.video[normalizedCodec].profile = result.profile;
+					  }
+					  
+					  if (result.webrtcHwEncoding) {
+						codecData.video[normalizedCodec].webrtcHwEncoding = true;
+					  }
+					}
+				  }
+				} else {
+				  console.log('WebRTC not supported by this browser');
+				}
+				
+				// 4. Check scalability modes and MediaCapabilities
+				if ('mediaCapabilities' in navigator) {
+				  console.log('Checking MediaCapabilities API support...');
+				  
+				  const videoTypes = ['vp8', 'vp9', 'av1', 'h264', 'h265', 'avc1'];
+				  const resolutions = [
+					{ width: 640, height: 360 },
+					{ width: 1280, height: 720 },
+					{ width: 1920, height: 1080 }
+				  ];
+				  
+				  // Define scalability modes to test
+				  const scalabilityModes = [
+					"L1T1", "L1T2", "L1T3",
+					"L2T1", "L2T2", "L2T3",
+					"L3T1", "L3T2", "L3T3",
+					"S2T1", "S2T2", "S2T3",
+					"S3T1", "S3T2", "S3T3"
+				  ];
+				  
+				  // Check browser-specific capability type
+				  const isFirefox = navigator.userAgent.indexOf("Firefox") >= 0;
+				  const capabilityType = isFirefox ? "transmission" : "webrtc";
+				  
+				  // Check WebRTC codec capabilities
+				  const webrtcCodecs = [];
+				  if ('RTCRtpSender' in window && RTCRtpSender.getCapabilities) {
+					try {
+					  const rtcCodecs = RTCRtpSender.getCapabilities('video').codecs;
+					  rtcCodecs.forEach(codec => {
+						if (!['video/red', 'video/ulpfec', 'video/rtx'].includes(codec.mimeType)) {
+						  const codecName = codec.mimeType.replace("video/", "").toLowerCase();
+						  webrtcCodecs.push({
+							name: codecName,
+							mimeType: codec.mimeType,
+							sdpFmtpLine: codec.sdpFmtpLine,
+							clockRate: codec.clockRate
+						  });
+						}
+					  });
+					  
+					  console.log(`Found ${webrtcCodecs.length} supported WebRTC codecs`);
+					} catch (e) {
+					  console.error(`Error getting RTCRtpSender.getCapabilities: ${e.message}`);
+					}
+				  }
+				  
+				  // Process each codec with MediaCapabilities
+				  for (const codec of webrtcCodecs) {
+					try {
+					  const capabilityPromises = [];
+					  const codecScalabilityModes = [];
+					  
+					  // Test different scalability modes
+					  for (const mode of scalabilityModes) {
+						for (const res of resolutions) {
+						  capabilityPromises.push(
+							navigator.mediaCapabilities.encodingInfo({
+							  type: capabilityType,
+							  video: {
+								contentType: codec.mimeType,
+								width: res.width,
+								height: res.height,
+								bitrate: 2000000,
+								framerate: 30,
+								scalabilityMode: mode
+							  }
+							}).then(result => {
+							  return { mode, res, result };
+							}).catch(e => {
+							  return { mode, res, error: e };
+							})
+						  );
+						}
+					  }
+					  
+					  const results = await Promise.all(capabilityPromises);
+					  
+					  // Process results
+					  let isSupported = false;
+					  let isSmooth = false;
+					  let isPowerEfficient = false;
+					  let supportedModes = [];
+					  
+					  results.forEach(({ mode, res, result, error }) => {
+						if (result && !error) {
+						  if (result.supported) {
+							isSupported = true;
+							
+							if (result.smooth) {
+							  isSmooth = true;
+							}
+							
+							if (result.powerEfficient) {
+							  isPowerEfficient = true;
+							}
+							
+							if (!supportedModes.includes(mode)) {
+							  supportedModes.push(mode);
+							}
+						  }
+						}
+					  });
+					  
+					  if (isSupported) {
+						const codecName = codec.name;
+						codecData.video[codecName] = codecData.video[codecName] || {};
+						codecData.video[codecName].mediaCapabilities = true;
+						codecData.video[codecName].scalabilityModes = supportedModes;
+						
+						// Assume MediaCapabilities is testing decoding
+						codecData.video[codecName].canDecode = true;
+						
+						// If powerEfficient is true, this is a good indicator of hardware acceleration
+						if (isPowerEfficient && codecData.video[codecName].hardwareAccelerated !== true) {
+						  codecData.video[codecName].hardwareAccelerated = true;
+						  codecData.video[codecName].details = (codecData.video[codecName].details || '') + 
+							'MediaCapabilities reports this codec as power efficient. ';
+						}
+						
+						// Store SDP format parameters if available
+						if (codec.sdpFmtpLine && !codecData.video[codecName].profile) {
+						  const profileMatch = codec.sdpFmtpLine.match(/profile-level-id=([0-9a-f]+)/i);
+						  if (profileMatch) {
+							codecData.video[codecName].profile = profileMatch[1];
+						  }
+						}
+					  }
+					} catch (error) {
+					  console.error(`MediaCapabilities check failed for ${codec.name}: ${error.message}`);
+					}
+				  }
+				} else {
+				  console.log('MediaCapabilities API not supported by this browser');
+				}
+				
+				// Get browser info
+				const browserInfo = {
+				  userAgent: navigator.userAgent,
+				  platform: navigator.platform,
+				  vendor: navigator.vendor
+				};
+				
+				// Return complete codec data
+				return {
+				  video: codecData.video,
+				  audio: codecData.audio,
+				  browserInfo
+				};
+			  }
+
+			  // Run detection and return results
+			  return runDetection();
+			}
 			
 			
 			function loadIframe(zone="") {
@@ -673,11 +1308,10 @@
 					var request = new XMLHttpRequest();
 					request.open('POST', "https://record.vdo.workers.dev/?name="+recordResults);
 					try {
-						logged = JSON.stringify(logged);
+						request.send(JSON.stringify(logged));
 					} catch(e){
 						console.error(e);
 					}
-					request.send(logged);
 					
 					timer = 91;
 					div.innerHTML = "Test ended";

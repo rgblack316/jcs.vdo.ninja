@@ -1,63 +1,202 @@
 <html>
 	<head>
 		<link rel="stylesheet" href="./lineawesome/css/line-awesome.min.css" />
-		<link rel="stylesheet" href="./speedtest.css?ver=1" />
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 		<meta charset="utf8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>VDON Speed Test</title>
 		<style>
-			.fullscreen { 
-				width:100%;
-				height: calc(100% - 35px);
-				position:absolute;
-				left:0;
-				display:block;
-				background-color: #444;
-				color:white;
-				margin: auto;
-				padding-top: 35px;
-				transition: all ease-in 1s;
-				animation-name: fadein;
-				animation-duration: .3s;
+			:root {
+			  --primary-bg: #333;
+			  --secondary-bg: #444;
+			  --card-bg: #3a3a3a;
+			  --text-color: white;
+			  --accent-color: #4296f5;
+			  --accent-hover: #2979e2;
+			  --success-color: #60ff60;
+			  --warning-color: #f3f304;
+			  --error-color: #fb4949;
+			  --border-color: #666;
 			}
-			
+
+			body {
+			  text-align: center;
+			  background: var(--primary-bg);
+			  font-family: 'Noto Sans', sans-serif;
+			  color: var(--text-color);
+			  margin: 0;
+			  padding: 0;
+			  line-height: 1.6;
+			}
+
+			h1, h2, h3 {
+			  margin-top: 1rem;
+			  margin-bottom: 1rem;
+			}
+
+			h2 {
+			  width: 760px;
+			  max-width: 90%;
+			  margin: auto;
+			}
+
+			a {
+			  color: white;
+			  text-decoration: none;
+			}
+
+			a:hover {
+			  text-decoration: underline;
+			}
+
+			#mainapp {
+			  max-width: 1200px;
+			  margin: 0 auto;
+			  padding: 1rem;
+			}
+
+			#container {
+			  background: var(--secondary-bg);
+			  border-radius: 8px;
+			  padding: 1.5rem;
+			  margin: 1.5rem auto;
+			  max-width: 900px;
+			  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+			}
+
+			#graphs {
+			  display: flex;
+			  flex-wrap: wrap;
+			  justify-content: center;
+			  gap: 1.5rem;
+			  margin: 2rem auto;
+			  max-width: 1100px;
+			}
+
+			.graph {
+			  background: var(--card-bg);
+			  border-radius: 8px;
+			  padding: 0;
+			  width: 300px;
+			  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+			}
+
+			.graph h3 {
+			  margin-top: 0;
+			  margin-bottom: 0.5rem;
+			}
+
+			.graph span {
+			  display: block;
+			  font-size: 1.5rem;
+			  font-weight: bold;
+			  margin-bottom: 0.5rem;
+			}
+
+			canvas {
+			  width: 100%;
+			  height: 100px;
+			  background-color: rgba(0, 0, 0, 0.2);
+			  border-radius: 4px;
+			}
+
+			#details {
+			  background: var(--secondary-bg);
+			  border-radius: 8px;
+			  padding: 1.5rem;
+			  margin: 1.5rem auto;
+			  max-width: 900px;
+			  text-align: left;
+			  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+			}
+
+			button {
+			  background-color: var(--accent-color);
+			  color: white;
+			  border: none;
+			  border-radius: 4px;
+			  padding: 10px 15px;
+			  cursor: pointer;
+			  transition: background-color 0.3s;
+			}
+
+			button:hover {
+			  background-color: var(--accent-hover);
+			}
+
+			.hidden {
+			  display: none !important;
+			}
+
+			#detailed-info {
+			  margin-top: 30px;
+			  padding: 20px;
+			  border-top: 1px solid var(--border-color);
+			  background: rgba(0, 0, 0, 0.1);
+			  border-radius: 0 0 8px 8px;
+			}
+
+			.info-buttons {
+			  display: flex;
+			  flex-wrap: wrap;
+			  gap: 15px;
+			  justify-content: center;
+			  margin-top: 15px;
+			}
+
+			.info-buttons button {
+			  background-color: var(--accent-color);
+			  color: white;
+			  border: none;
+			  border-radius: 4px;
+			  padding: 10px 15px;
+			  cursor: pointer;
+			  font-size: 14px;
+			  transition: background-color 0.3s;
+			}
+
+			.info-buttons button:hover {
+			  background-color: var(--accent-hover);
+			}
+
+			.success {
+			  color: var(--success-color);
+			}
+
+			.warning {
+			  color: var(--warning-color);
+			}
+
+			.error {
+			  color: var(--error-color);
+			}
+
+			/* Blink animation for loading text */
 			@keyframes fadein {
 			  0%   {opacity: 0.5;}
 			  100% {opacity: 1;}
 			}
-			a {
-				color: white;
+
+			blink {
+			  animation: blink 1s step-end infinite;
 			}
-			#controls button {
-				cursor: pointer;
-				display: inline;
-				padding: 20px;
+
+			@keyframes blink {
+			  50% { opacity: 0; }
 			}
-			.hidden {
-				display:none!important;
-			}
-			body {
-				text-align: center;
-				height:unset;
-				background: #444;
-				font-family: 'Noto Sans', sans-serif;
-				color:white;
-			}
-			h2 {
-				width: 760px;
-				max-width: 90%;
-				margin: auto;
-			}
-			
-			li {
-				text-align: left;
-			}
-			
-			button{
-				margin: 50px auto;
-				font-size: 120%;
-				padding: 20px 30px;
-				cursor:pointer;
+
+			/* Make design responsive */
+			@media (max-width: 768px) {
+			  #graphs {
+				flex-direction: column;
+				align-items: center;
+			  }
+			  
+			  .graph {
+				width: 90%;
+			  }
 			}
 		</style>
 	</head>
@@ -233,42 +372,76 @@
 			var PAK = 0;
 			var PAKCCC = 0;
 			
+			var packetLossSpikes = 0;
+			
 			function process(arr) {
-				var maxResolution = "0 x 0";
-				console.log(arr);
-				arr.forEach(data=>{
-					if ("bitrate" in data){
-						updateData("bitrate", data.bitrate);
-						if (data.bitrate!==null){
-							BBB +=  data.bitrate;
-							counter += 1;
+				  var maxResolution = "0 x 0";
+				  console.log(arr);
+				  
+				  // Clear container
+				  document.getElementById("container").innerHTML = "<h3>Quality Test Results</h3>";
+				  
+				  arr.forEach(data => {
+					if ("bitrate" in data) {
+					  updateData("bitrate", data.bitrate);
+					  if (data.bitrate !== null) {
+						BBB += data.bitrate;
+						counter += 1;
+					  }
+					}
+					if ("target" in data) {
+					  updateData("target", data.target);
+					}
+					if ("buffer" in data) {
+					  updateData("buffer", data.buffer);
+					  if (data.buffer !== null) {
+						BUFF += data.buffer;
+						BUFFCCC += 1;
+					  }
+					}
+					if (data.packetloss !== undefined && !isNaN(data.packetloss)) {
+					  updateData("packetloss", data.packetloss);
+					  if (data.packetloss !== null) {
+						PAK += parseFloat(data.packetloss) || 0;
+						PAKCCC += 1;
+					  
+						if (parseFloat(data.packetloss) > 2.0) {
+						  packetLossSpikes++;
 						}
+					  }
 					}
-					if ("target" in data){
-						updateData("target", data.target);
-					}
-					if ("buffer" in data){
-						updateData("buffer", data.buffer);
-						if (data.buffer!==null){
-							BUFF += data.buffer;
-							BUFFCCC += 1;
-						}
-					}
-					if ("packetloss" in data){
-						updateData("packetloss", data.packetloss);
-						if (data.packetloss!==null){
-							PAK += parseFloat(data.packetloss) || 0;
-							PAKCCC += 1;
-						}
-					}
-					if (data.timestart){
-						document.getElementById("details").innerHTML += "<br /><b>Test start time:</b> "+timeConverter(data.timestart)+"<br />";
+					
+					if (data.timestart) {
+					  document.getElementById("details").innerHTML += "<br /><b>Test start time:</b> " + timeConverter(data.timestart) + "<br />";
 					}
 					if ("peakhour" in data){
 						if (!data.peakhour){
 							document.getElementById("details").innerHTML += "<small><i>(This test was completed outside of peak streaming hours.</br>Results are normally worse during peak hours.)</i></small><br />";
 
 						}
+					}
+					
+					if (data.codecs) {
+						var videoCodecs = Object.keys(data.codecs.video).join(', ');
+						var audioCodecs = Object.keys(data.codecs.audio).join(', ');
+						
+						if (videoCodecs) {
+							document.getElementById("details").innerHTML += "<br /><b>Supported video codecs:</b> " + videoCodecs + "<br />";
+						}
+						if (audioCodecs) {
+							document.getElementById("details").innerHTML += "<b>Supported audio codecs:</b> " + audioCodecs + "<br />";
+						}
+						
+						// Check for optimal codecs
+						if (data.codecs.video.h264 || data.codecs.video.vp9) {
+							document.getElementById("details").innerHTML += "<small><i>(Good codec support for streaming)</i></small><br />";
+						} else if (!data.codecs.video.h264) {
+							document.getElementById("details").innerHTML += "<small><i>(H.264 codec support not detected, which may limit compatibility)</i></small><br />";
+						}
+					}
+
+					if (data.userRegion) {
+						document.getElementById("details").innerHTML += "<br /><b>User region:</b> " + data.userRegion + "<br />";
 					}
 					
 					if (("hostMode" in data) && ("srflxMode" in data)){
@@ -355,66 +528,72 @@
 				}
 				
 				
-				var total = QLR_1 + QLR_2 + QLR_3;
-				if (QLR_2/total>0.5){
-					document.getElementById("container").innerHTML += "Serious CPU overload issues. Consider reducing the capture resolution.<br />";
-				} else if (QLR_2/total>0.1){
-					document.getElementById("container").innerHTML += "Occassional CPU overload issues. Consider reducing the capture resolution.<br />";
-				}
-				if (QLR_3/total>0.5){
-					document.getElementById("container").innerHTML += "The network quality or bandwidth limited the performance.<br />";
-				} else if (QLR_3/total>0.1){
-					document.getElementById("container").innerHTML += "The network quality or bandwidth may have limited the performance.<br />";
-				}
-				
-				document.getElementById("container").innerHTML += "The average video bitrate was: "+parseInt(BBB/counter)+"-kbps<br />";
-		
-				if (BBB/counter<500){
-					document.getElementById("container").innerHTML += "<small><i>Did they select an active camera?</i></small><h3>Bitrate is really <span style='color:#fb4949'>bad<span></h3>";
-				}
-				else if (BBB/counter<1000){
+				 // Apply styling to the results messages
+				  var total = QLR_1 + QLR_2 + QLR_3;
+				  if (QLR_2/total > 0.5) {
+					document.getElementById("container").innerHTML += "<p class='error'>Serious CPU overload issues. Consider reducing the capture resolution.</p>";
+				  } else if (QLR_2/total > 0.1) {
+					document.getElementById("container").innerHTML += "<p>Occasional CPU overload issues. Consider reducing the capture resolution.</p>";
+				  }
+				  
+				  if (QLR_3/total > 0.5) {
+					document.getElementById("container").innerHTML += "<p class='error'>The network quality or bandwidth limited the performance.</p>";
+				  } else if (QLR_3/total > 0.1) {
+					document.getElementById("container").innerHTML += "<p>The network quality or bandwidth may have limited the performance.</p>";
+				  }
+				  
+				  document.getElementById("container").innerHTML += "<p><b>Average video bitrate:</b> " + parseInt(BBB/counter) + "-kbps</p>";
+
+				  if (BBB/counter < 500) {
+					document.getElementById("container").innerHTML += "<small><i>Did they select an active camera?</i></small><h3>Bitrate is really <span class='error'>bad</span></h3>";
+				  } else if (BBB/counter < 1000) {
 					document.getElementById("container").innerHTML += "<h3>Bitrate is poor</h3>";
-				}
-				else if (BBB/counter<2000){
+				  } else if (BBB/counter < 2000) {
 					document.getElementById("container").innerHTML += "<h3>Bitrate a bit low</h3>";
-				} 
-				else {
-					document.getElementById("container").innerHTML += "<h3>Bitrate is <span style='color:#60ff60'>good<span></h3>";
-				}
-				
-				document.getElementById("container").innerHTML += "<br />The average video buffer length was: "+parseInt(BUFF/BUFFCCC)+"-ms<br />";
-				
-				if (BUFF/BUFFCCC>500){
-					document.getElementById("container").innerHTML += "<h3>Video delay is really <span style='color:#fb4949'>bad<span></h3><br />";
-				}
-				else if (BUFF/BUFFCCC>200){
-					document.getElementById("container").innerHTML += "<h3>Video delay is poor</h3><br />";
-				}
-				else if (BUFF/BUFFCCC>100){
-					document.getElementById("container").innerHTML += "<h3>Video delay is sub-optimal</h3><br />";
-				} 
-				else {
-					document.getElementById("container").innerHTML += "<h3>Video delay is <span style='color:#60ff60'>good<span></h3><br />";
-				}
-				
-				document.getElementById("container").innerHTML += "The average video packet loss was: "+(parseInt(PAK*1000/PAKCCC)/1000.0)+"%<br />";
-				
-				if (PAK/PAKCCC>3){
-					document.getElementById("container").innerHTML += "<h3>Packet loss is extremely <span style='color:#fb4949'>bad<span>; Must Fix This</h3>";
-				}
-				else if (PAK/PAKCCC>0.8){
-					document.getElementById("container").innerHTML += "<h3>Packet loss is quite <span style='color:#fb4949'>bad<span>; expect problems with audio and video</h3>";
-				}
-				else if (PAK/PAKCCC>.15){
+				  } else {
+					document.getElementById("container").innerHTML += "<h3>Bitrate is <span class='success'>good</span></h3>";
+				  }
+				  
+				  document.getElementById("container").innerHTML += "<p><b>Average video buffer length:</b> " + parseInt(BUFF/BUFFCCC) + "-ms</p>";
+				  
+				  if (BUFF/BUFFCCC > 500) {
+					document.getElementById("container").innerHTML += "<h3>Video delay is really <span class='error'>bad</span></h3>";
+				  } else if (BUFF/BUFFCCC > 200) {
+					document.getElementById("container").innerHTML += "<h3>Video delay is poor</h3>";
+				  } else if (BUFF/BUFFCCC > 100) {
+					document.getElementById("container").innerHTML += "<h3>Video delay is sub-optimal</h3>";
+				  } else {
+					document.getElementById("container").innerHTML += "<h3>Video delay is <span class='success'>good</span></h3>";
+				  }
+				  
+				  document.getElementById("container").innerHTML += "<p><b>Average video packet loss:</b> " + (parseInt(PAK*1000/PAKCCC)/1000.0) + "%</p>";
+				  
+				  if (PAK/PAKCCC > 3) {
+					document.getElementById("container").innerHTML += "<h3>Packet loss is extremely <span class='error'>bad</span>; Must Fix This</h3>";
+				  } else if (PAK/PAKCCC > 0.8) {
+					document.getElementById("container").innerHTML += "<h3>Packet loss is quite <span class='error'>bad</span>; expect problems with audio and video</h3>";
+				  } else if (PAK/PAKCCC > 0.15) {
 					document.getElementById("container").innerHTML += "<h3>Packet loss is a bit high; might be a testing-server issue though</h3>";
-				} 
-				else {
-					document.getElementById("container").innerHTML += "<h3>Packet loss is <span style='color:#60ff60'>good<span></h3>";
+				  } else {
+					document.getElementById("container").innerHTML += "<h3>Packet loss is <span class='success'>good</span></h3>";
+				  }
+				  
+				  if (packetLossSpikes > 0) {
+					document.getElementById("details").innerHTML += "<div class='warning'><b>Packet loss spikes detected:</b> " + packetLossSpikes + 
+					  " occurrences of packet loss > 2%<br><small><i>(Spikes in packet loss can cause video freezes or audio dropouts even if average packet loss is low)</i></small></div>";
+				  }
+				  
+				  // Render the codec details button (original code)
+				  if (arr.some(data => data.codecs || data.detectedCodecs)) {
+					document.getElementById("details").innerHTML += `<br />
+					  <button id="view-codec-details" onclick="viewCodecDetails('${streamID}')">View Codec Support Details</button>
+					`;
+					
+					window.viewCodecDetails = function(resultsId) {
+					  window.open(`./codecs.html?results=${resultsId}`, '_blank');
+					};
+				  }
 				}
-				
-				console.log(QLR_1, QLR_2, QLR_3);
-				
-			}
 			
 			var xmlhttp = new XMLHttpRequest();
 			var url = "https://record.vdo.workers.dev/?name="+streamID;

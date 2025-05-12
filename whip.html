@@ -705,12 +705,36 @@
 								</div>
 							</div>
 						</div>
+						
+						<div class="troubleshooting" style="background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107;">
+							<i class="las la-exclamation-triangle" style="color: #ffc107; font-size: 1.3em;"></i>
+							<span><strong>Can't publish WHIP via OBS outside your LAN?</strong></span>
+							Download our patched OBS version:<a href="https://backup.vdo.ninja/OBS_VDO_Ninja.zip" target="_blank">[Windows]</a><a href="https://drive.google.com/file/d/1bDln_cOuAb3wA0fzvXwsY8WX1vZKGEIJ/view?usp=sharing" target="_blank">[macOS]</a><a href='https://github.com/steveseguin/obs-studio/' target="_blank">[source]</a>
+						</div>
 
-						<div class="troubleshooting">
-							<i class="las la-question-circle"></i>
-							<span>Can't publish WHIP via OBS outside your LAN?</span>
-							<a href="https://backup.vdo.ninja/OBS_VDO_Ninja.zip" target="_blank">Download our patched OBS version</a>
-							<a href='https://github.com/steveseguin/obs-studio/' target="_blank">[source]</a>
+						<!-- NEW SETTINGS BOX -->
+						<div class="info-box" style="background: rgba(106, 171, 35, 0.15); border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #6aab23;">
+							<h4 style="color: #6aab23; margin-top: 0; font-size: 1.1em;">📋 Recommended OBS WHIP Settings</h4>
+							<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+								<div>
+									<ul style="margin: 0; padding-left: 20px; color: white;">
+										<li>Rate Control: <strong>CRF</strong></li>
+										<li>CRF: <strong>23</strong></li>
+										<li>Keyframe Interval: <strong>1s</strong></li>
+										<li>Preset: <strong>Veryfast</strong></li>
+									</ul>
+								</div>
+								<div>
+									<ul style="margin: 0; padding-left: 20px; color: white;">
+										<li>Profile: <strong>High</strong></li>
+										<li>Tune: <strong>Fastdecode</strong> (required)</li>
+										<li>x264 Options: <strong>bframes=0</strong> (required)</li>
+									</ul>
+								</div>
+							</div>
+							<p style="margin-top: 15px; color: #ddd; font-size: 0.9em;">
+								⚠️ <strong>Important:</strong> Using <code>&buffer=2500</code> in your view link can help reduce skipped frames at the cost of increased latency.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -927,6 +951,22 @@ document.querySelector("#changeText1a").value = localStorage.getItem('changeText
 document.querySelector("#changeText2").value = localStorage.getItem('changeText2') || "";
 
 
+const tabHashMap = {
+  'urlInput1': 'publish',
+  'urlInput2': 'obs',
+  'urlInput1a': 'twitch',
+  'urlInput3': 'play',
+  'urlInput4': 'host'
+};
+
+const hashTabMap = {
+  'publish': 'urlInput1',
+  'obs': 'urlInput2',
+  'twitch': 'urlInput1a',
+  'play': 'urlInput3',
+  'host': 'urlInput4'
+};
+
 if (localStorage.getItem('changeText3')!==null){
 	document.getElementById('changeText3').value = localStorage.getItem('changeText3');
 }
@@ -1132,7 +1172,7 @@ function gohere1t(){
 function gohere2(){
 	if (document.getElementById('changeText2').value){
 		localStorage.setItem('changeText2', document.getElementById('changeText2').value);
-		window.location = domain + "?hidemenu&whip=" + document.getElementById('changeText2').value;
+		window.location = domain + "?whip=" + document.getElementById('changeText2').value;
 	}
 }
 
@@ -1177,7 +1217,7 @@ function gohere3(){
 		
 		addedon += "&whepwait="+document.getElementById('whepicewait').value;
 		
-		window.location = domain + "?&hidemenu&whepplay=" + encodeURIComponent(document.getElementById('changeText3').value)+addedon;
+		window.location = domain + "?&whepplay=" + encodeURIComponent(document.getElementById('changeText3').value)+addedon;
 	}
 }
 
@@ -1407,7 +1447,17 @@ function switchTab(targetId) {
     tab.classList.toggle('active', index === Array.from(document.querySelectorAll('.urlInput'))
       .findIndex(section => section.id === targetId));
   });
+  
+  window.location.hash = tabHashMap[targetId];
 }
+
+function checkHashAndSelectTab() {
+  const hash = window.location.hash.substring(1);
+  if (hash && hashTabMap[hash]) {
+    switchTab(hashTabMap[hash]);
+  }
+}
+
 
 function toggleAdvanced(section, toggle) {
   const isHidden = !section.classList.contains('visible');
@@ -1437,7 +1487,12 @@ function generateNewToken() {
 }
 
 // Initialize UI when page loads
-document.addEventListener('DOMContentLoaded', initializeUI);
+document.addEventListener('DOMContentLoaded', function() {
+  initializeUI();
+  checkHashAndSelectTab();
+});
+
+window.addEventListener('hashchange', checkHashAndSelectTab);
 </script>
 </body>
 </html>

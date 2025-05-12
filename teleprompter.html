@@ -293,7 +293,14 @@
 						<option value="url" selected>Website URL</option>
 						<option value="twitch">Twitch</option>
 					</select >
-					
+					<select style="border-radius:10px;margin-left:5px;margin-top: 13px;width:unset!important;" onchange="rotatePage();" class="changeText" id="zoomLevel" title="Change the scale of the content">
+						<option value="1" selected>100% (Normal)</option>
+						<option value="0.75">75%</option>
+						<option value="0.5">50%</option>
+						<option value="1.25">125%</option>
+						<option value="1.5">150%</option>
+						<option value="2">200%</option>
+					</select>
 					<select style="border-radius:10px;margin-left:5px;margin-top: 13px;width:unset!important;" onchange="rotatePage();" class="changeText" id="rotation" title="Which video bitrate target would you prefer?" >
 						<option value="0" selected>No Rotation</option>
 						<option value="90">↩️90° CW</option>
@@ -406,6 +413,11 @@ if (urlParams.has("rotate")){
 }
 
 
+if (urlParams.has("zoom")){
+    document.querySelector("#zoomLevel").value = urlParams.get("zoom") || 1;
+} else if (localStorage.getItem('zoomLevel')){
+    document.querySelector("#zoomLevel").value = localStorage.getItem('zoomLevel') || 1;
+}
 
 if (urlParams.has("flip")){
 	document.querySelector("#transform").value = urlParams.get("flip") || 0;
@@ -677,97 +689,99 @@ async function loadPage(){
 	document.body.appendChild(iframe);
 }
 
-
 function rotatePage(){
-
-	var rotate = document.querySelector("#rotation").value || 0;
-	var flip = document.querySelector("#transform").value;
-	
-	updateURL("rotate="+rotate, true);
-	updateURL("flip="+flip, true);
-	
-	localStorage.setItem('iframeURL', document.getElementById('iframeURL').value);
-	localStorage.setItem('rotation', document.getElementById('rotation').value);
-	//localStorage.setItem('backgroundColor', document.getElementById('backgroundColor').value);
-	localStorage.setItem('transform', document.getElementById('transform').value);
-		
-	if (rotate==180){
-		iframe.style.transform = "rotate(180deg)";
-		iframe.style.width = "100vw";
-		iframe.style.height = "calc(100vh - "+menuOffset+")";
-		iframe.style.transformOrigin = "0 0;";
-		iframe.style.position = "rotate(180deg)";
-		iframe.style.left = "100vw";
-		iframe.style.top = "calc(100vh)";
-		
-		if (flip==1){
-			iframe.style.transform += " scaleX(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" + )";
-			iframe.style.left = "calc(" + (iframe.style.left) +" - 100vw)";
-		} else if (flip==2){
-			iframe.style.transform += " scaleY(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" + "+menuOffset+" - 100vh)";
-			iframe.style.left = "calc(" + (iframe.style.left) +" )";
-		}
-		
-	} else if (rotate==270){
-		iframe.style.transform = "rotate(270deg)";
-		iframe.style.left = "0";
-		iframe.style.top = "100vh";
-		iframe.style.transformOrigin = "0 0;";
-		iframe.style.width = "calc(100vh - "+menuOffset+")";
-		iframe.style.height = "100vw";
-		
-		if (flip==1){
-			iframe.style.transform += " scaleX(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" + "+menuOffset+" - 100vh)";
-			iframe.style.left = "calc(" + (iframe.style.left) +" )";
-		} else if (flip==2){
-			iframe.style.transform += " scaleY(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +"  )";
-			iframe.style.left = "calc(" + (iframe.style.left) +" + 100vw)";
-		} 
-		
-	} else if (rotate==90){
-		iframe.style.transform = "rotate(90deg)";
-		iframe.style.width = "calc(100vh - "+menuOffset+")";
-		iframe.style.height = "100vw";
-		iframe.style.transformOrigin = "0 0;";
-		iframe.style.left = "calc(100vw";
-		iframe.style.top = menuOffset;
-		
-		if (flip==1){
-			iframe.style.transform += " scaleX(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" - "+menuOffset+" + 100vh)";
-			iframe.style.left = "calc(" + (iframe.style.left) +" )";
-		} else if (flip==2){
-			iframe.style.transform += " scaleY(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" )";
-			iframe.style.left = "calc(" + (iframe.style.left) +" - 100vw)";
-		} 
-		
-	} else {
-		iframe.style.transform = "rotate(0deg)";
-		iframe.style.width = "100vw";
-		iframe.style.height = "calc(100vh - "+menuOffset+")";
-		iframe.style.transformOrigin = "0 0;";
-		iframe.style.position = "rotate(0deg)";
-		iframe.style.left = "0";
-		iframe.style.top = menuOffset;
-		
-		if (flip==1){
-			iframe.style.transform += " scaleX(-1)";
-			iframe.style.top = "calc(" + (iframe.style.top) +" )";
-			iframe.style.left = "calc(" + (iframe.style.left) +" + 100vw)";
-		} else if (flip==2){
-			iframe.style.transform += " scaleY(-1)";
-			iframe.style.top = "calc( 100vh)";
-			
-			//iframe.style.left = "calc(" + (iframe.style.left) +" + 100vw)";
-		}
-	}
+    var rotate = document.querySelector("#rotation").value || 0;
+    var flip = document.querySelector("#transform").value;
+    var zoomLevel = parseFloat(document.querySelector("#zoomLevel").value || 1);
+    
+    updateURL("rotate="+rotate, true);
+    updateURL("flip="+flip, true);
+    updateURL("zoom="+zoomLevel, true);
+    
+    localStorage.setItem('iframeURL', document.getElementById('iframeURL').value);
+    localStorage.setItem('rotation', document.getElementById('rotation').value);
+    localStorage.setItem('transform', document.getElementById('transform').value);
+    localStorage.setItem('zoomLevel', document.getElementById('zoomLevel').value);
+    
+    // Remove existing iframe if it exists
+    if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+    }
+    
+    // Create container for iframe if it doesn't exist
+    var container = document.getElementById('iframe-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'iframe-container';
+        container.style.overflow = 'hidden';
+        container.style.position = 'absolute';
+        container.style.top = menuOffset;
+        container.style.left = '0';
+        container.style.width = '100vw';
+        container.style.height = 'calc(100vh - ' + menuOffset + ')';
+        document.body.appendChild(container);
+    }
+    
+    // Reset iframe styles
+    iframe.style.position = 'absolute';
+    iframe.style.border = 'none';
+    iframe.style.margin = '0';
+    iframe.style.padding = '0';
+    
+    // Calculate dimensions based on zoom
+    if (rotate == '90' || rotate == '270') {
+        // For rotated views, swap width and height
+        iframe.style.width = (100 / zoomLevel) + 'vh';
+        iframe.style.height = (100 / zoomLevel) + 'vw';
+    } else {
+        iframe.style.width = (100 / zoomLevel) + 'vw';
+        iframe.style.height = 'calc(' + (100 / zoomLevel) + 'vh - ' + (parseInt(menuOffset) / zoomLevel) + 'px)';
+    }
+    
+    // Set transform origin
+    iframe.style.transformOrigin = '0 0';
+    
+    // Apply transformations
+    var transforms = [];
+    
+    // Add scale if not 1
+    if (zoomLevel !== 1) {
+        transforms.push('scale(' + zoomLevel + ')');
+    }
+    
+    // Add rotation
+    if (rotate != '0') {
+        transforms.push('rotate(' + rotate + 'deg)');
+    }
+    
+    // Add flipping
+    if (flip == '1') {
+        transforms.push('scaleX(-1)');
+    } else if (flip == '2') {
+        transforms.push('scaleY(-1)');
+    }
+    
+    // Set the transform
+    iframe.style.transform = transforms.join(' ');
+    
+    // Position the iframe based on rotation and scale
+    if (rotate == '180') {
+        iframe.style.top = 'calc(100vh - ' + menuOffset + ')';
+        iframe.style.left = '100vw';
+    } else if (rotate == '270') {
+        iframe.style.top = '100vh';
+        iframe.style.left = '0';
+    } else if (rotate == '90') {
+        iframe.style.top = menuOffset;
+        iframe.style.left = '100vw';
+    } else {
+        iframe.style.top = menuOffset;
+        iframe.style.left = '0';
+    }
+    
+    // Add the iframe to the container
+    container.appendChild(iframe);
 }
-
 </script>
 </body>
 </html>
