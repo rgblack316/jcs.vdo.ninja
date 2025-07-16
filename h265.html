@@ -192,6 +192,24 @@
             border-radius: 0 5px 5px 0;
         }
 
+        .update-notice {
+            background: rgba(106, 171, 35, 0.2);
+            border: 1px solid rgba(106, 171, 35, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .browser-version {
+            display: inline-block;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin: 0 3px;
+        }
+
         @media (max-width: 600px) {
             body {
                 font-size: 1em;
@@ -208,12 +226,21 @@
         }
     </style>
 </head>
-<!-- Rest of the HTML remains the same -->
 <body>
     <div id="header">WebRTC Codec Support Checker</div>
     <div class="container">
         <div class="description">
-            <p>H.265 (also known as HEVC or H265) is a modern and efficient video codec capable of high-efficiency video compression. Due to licensing requirements, its availability in browsers is limited, but there are ways to enable and use it.</p>
+            <p>H.265 (also known as HEVC or H265) is a modern and efficient video codec capable of high-efficiency video compression. Due to licensing requirements, its availability in browsers is limited, but support is improving.</p>
+        </div>
+
+        <div class="update-notice">
+            <h2>🎉 Chrome Now Supports H.265 Natively!</h2>
+            <p><strong>Great news!</strong> Starting from Chrome version <span class="browser-version">136</span> and above, H.265/HEVC is now supported natively for WebRTC without requiring any flags or special configuration.</p>
+            <p><strong>Platform requirements:</strong></p>
+            <ul>
+                <li>✅ Windows, macOS: Works out of the box</li>
+                <li>⚠️ Linux: Requires VAAPI support</li>
+            </ul>
         </div>
 
         <div class="codec-status" id="mainStatus">
@@ -229,51 +256,56 @@
             <h2>H.265/HEVC Browser Support</h2>
             <p>H.265/HEVC support varies by browser:</p>
             <ul>
+                <li><strong>Chrome/Chromium v136+:</strong> Supported natively (no flags needed!)</li>
+                <li><strong>Chrome/Chromium v135 and below:</strong> Can be enabled manually with flags</li>
                 <li><strong>Safari-based browsers:</strong> Supported natively</li>
                 <li><strong>Thorium browser:</strong> Supported natively</li>
-                <li><strong>Chrome on PC:</strong> Can be enabled manually (see below)</li>
-                <li><strong>Other browsers:</strong> Generally not supported</li>
+                <li><strong>Firefox:</strong> Generally not supported</li>
+                <li><strong>Other browsers:</strong> Check individual browser documentation</li>
             </ul>
 
-            <h2>Enabling H.265 in Chrome on Windows</h2>
-            
-            <div class="instructions">
-                <h3>Method 1: Using a Desktop Shortcut</h3>
-                <ol>
-                    <li>Right-click on your Chrome desktop shortcut (create one if you don't have it)</li>
-                    <li>Select "Properties"</li>
-                    <li>In the "Target" field, after the quotes containing the Chrome executable path, add a space and then paste:
-                        <code>--enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
-                    </li>
-                    <li>The complete target should look similar to:
-                        <code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
-                    </li>
-                    <li>Click "Apply" and "OK"</li>
-                </ol>
+            <div id="legacyInstructions" style="display: none">
+                <h2>Enabling H.265 in Older Chrome Versions (v135 and below)</h2>
+                
+                <div class="instructions">
+                    <h3>Method 1: Using a Desktop Shortcut</h3>
+                    <ol>
+                        <li>Right-click on your Chrome desktop shortcut (create one if you don't have it)</li>
+                        <li>Select "Properties"</li>
+                        <li>In the "Target" field, after the quotes containing the Chrome executable path, add a space and then paste:
+                            <code>--enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
+                        </li>
+                        <li>The complete target should look similar to:
+                            <code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
+                        </li>
+                        <li>Click "Apply" and "OK"</li>
+                    </ol>
 
-                <div class="note">
-                    Note: You must launch Chrome using this modified shortcut to enable H.265 support.
-                </div>
+                    <div class="note">
+                        Note: You must launch Chrome using this modified shortcut to enable H.265 support.
+                    </div>
 
-                <h3>Method 2: Using Command Prompt</h3>
-                <ol>
-                    <li>Close all running Chrome instances</li>
-                    <li>Press Win + R to open the Run dialog</li>
-                    <li>Type "cmd" and press Enter to open Command Prompt</li>
-                    <li>Navigate to Chrome's installation directory (typically):
-                        <code>cd "C:\Program Files\Google\Chrome\Application"</code>
-                    </li>
-                    <li>Run Chrome with the parameters:
-                        <code>chrome.exe --enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
-                    </li>
-                </ol>
+                    <h3>Method 2: Using Command Prompt</h3>
+                    <ol>
+                        <li>Close all running Chrome instances</li>
+                        <li>Press Win + R to open the Run dialog</li>
+                        <li>Type "cmd" and press Enter to open Command Prompt</li>
+                        <li>Navigate to Chrome's installation directory (typically):
+                            <code>cd "C:\Program Files\Google\Chrome\Application"</code>
+                        </li>
+                        <li>Run Chrome with the parameters:
+                            <code>chrome.exe --enable-features=PlatformHEVCEncoderSupport,WebRtcAllowH265Receive,WebRtcAllowH265Send --force-fieldtrials=WebRTC-Video-H26xPacketBuffer/Enabled</code>
+                        </li>
+                    </ol>
 
-                <div class="note">
-                    Important: These settings need to be applied each time you launch Chrome. Using a modified shortcut (Method 1) is more convenient for regular use.
+                    <div class="note">
+                        Important: These settings need to be applied each time you launch Chrome. Using a modified shortcut (Method 1) is more convenient for regular use.
+                    </div>
                 </div>
             </div>
         </div>
-		<div class="compatibility-notice" style="
+
+        <div class="compatibility-notice" style="
             background: rgba(255, 165, 0, 0.1);
             border-left: 4px solid #ffa500;
             padding: 20px;
@@ -304,6 +336,7 @@
             const mainStatus = document.getElementById('mainStatus');
             const codecListContent = document.getElementById('codecListContent');
             const helpInfo = document.getElementById('helpInfo');
+            const legacyInstructions = document.getElementById('legacyInstructions');
 
             try {
                 const codecs = RTCRtpSender.getCapabilities('video').codecs;
@@ -319,11 +352,36 @@
                     }
                 });
 
-                mainStatus.innerHTML = `
+                // Check Chrome version
+                let chromeVersion = null;
+                let isChrome = false;
+                const userAgent = navigator.userAgent;
+                
+                if (userAgent.includes('Chrome/') && !userAgent.includes('Edg/')) {
+                    isChrome = true;
+                    const match = userAgent.match(/Chrome\/(\d+)/);
+                    if (match) {
+                        chromeVersion = parseInt(match[1]);
+                    }
+                }
+
+                let statusMessage = `
                     <h2>H.265/HEVC Status</h2>
                     <p><span class="status-icon ${h265Supported ? 'supported' : 'unsupported'}"></span>
                     H.265/HEVC is currently ${h265Supported ? 'supported' : 'not supported'} in your browser</p>
                 `;
+
+                // Add browser version info if Chrome
+                if (isChrome && chromeVersion) {
+                    statusMessage += `<p style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">Chrome version detected: ${chromeVersion}</p>`;
+                    
+                    // Show legacy instructions only for older Chrome versions
+                    if (chromeVersion < 136 && !h265Supported) {
+                        legacyInstructions.style.display = 'block';
+                    }
+                }
+
+                mainStatus.innerHTML = statusMessage;
 
                 codecListContent.innerHTML = Array.from(codecsFound)
                     .map(codec => `<p><span class="status-icon supported"></span>${codec}</p>`)

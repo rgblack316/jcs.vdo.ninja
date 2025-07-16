@@ -1,23 +1,77 @@
-p2p is a sample of how to use vdo.ninja as a data transport tunneling service
+# VDO.Ninja Examples
 
-twitch is an example of how to have a twitch live chat side-by-side with VDO.NInja on the same screen
+This directory contains various examples demonstrating different features and capabilities of VDO.Ninja. All examples are accessible through the index.html file.
 
-dual is an example of how to have two VDO.Ninja windows (or any windows really) open on the same page; Picture-in-Picture style
+## Categories
 
-sensors is an example of how to transmit sensor and video data from a phone to a computer, drawing it to canvas: youtube video for this exists
+### Core API Examples
+- **api_example.html** - Basic iframe API usage demonstration
+- **simple_iframe_api.html** - Simple iframe API implementation
+- **iframetesting.html** - Testing iframe functionality
+- **iframe.outbound-stats.html** - Get stats from VDO.Ninja using the iframe API
+- **mute_guest_iframe.html** - Control guest muting via iframe API
+- **iframe_example.html** - Additional iframe API example
 
-midi demonstrates the MIDI API for VDO.Ninja
+### UI & Layout Examples
+- **draggable.html** - Drag multiple windows around to create custom layouts
+- **dual.html** - Two VDO.Ninja windows (Picture-in-Picture style)
+- **custom_overlay.html** - Custom overlay implementation
+- **rotated.html** - Video rotation example
+- **slidingzoom.html** - Sliding zoom effect
 
-draggable demonstrates how to drag multiple windows around, if you wanted to create a custom layout of elements. (experimental)
+### Room Management
+- **waiting_room.html** - Virtual waiting room implementation
+- **simplelink.html** - Simple link generation
+- **changepass.html** - Create passwords and HASH values for rooms
+- **transfer.html** - Room transfer functionality
 
-chat.html is an example of a chat-only interface for VDO.NInja; maybe dockable into OBS even
+### Control Examples
+- **obsremote.html** - Remotely control OBS using VDO.Ninja
+- **webcontrol.html** - Web-based control interface
+- **powerpoint.html** - PowerPoint control integration
+- **gamecontroller.html** - Game controller input handling
+- **switchmics.html** - Switch between microphones
 
-iframe.outbound-stats.html demostrates how to get stats from VDO.Ninja using the IFRAME API
+### Hardware & Sensors
+- **midi.html** - MIDI API demonstration
+- **webhid.html** - Interface with USB devices (e.g., StreamDeck)
+- **sensors.html** - Transmit sensor and video data from phone to computer
+- **sensoroverlay.html** - Overlay sensor data on video
+- **accelerometer.html** - Accelerometer data usage
 
-changepass lets you create passwords and related HASH values for VDO.NInja rooms
+### Platform Integration
+- **twitch.html** - Twitch live chat side-by-side with VDO.Ninja
+- **youtube.html** - YouTube integration example
+- **kick.html** - Kick platform integration
+- **wireless.html** - Wireless streaming setup
+- **zoom.html** - Publish to VDO.Ninja for window-capturing into Zoom
 
-webhid demonstrates how to interface with a USB device, like a streamdeck (mouse/keyboard not supported)
+### Specialized Applications
+- **teleprompter.html** - Teleprompter implementation
+- **teleprompt.html** - Alternative teleprompter
+- **labelonly.html** - Display labels only
+- **custom_labels.html** - Custom label implementation
+- **socal.html** - Social streaming example
 
-zoom.html is a tool for letting you publish into VDO.Ninja, but then full-screen the window once setup, allowing for window-capturing into zoom.
+### Communication & Data
+- **p2p.html** - Data transport tunneling service example
+- **chat.html** - Chat-only interface (dockable into OBS)
+- **googleai.html** - Google AI integration
 
-obs_remote is also hosted on github elsewhere, but it's an example of how to remotely control OBS using VDO.Ninja's tunneling abilities
+### Utilities
+- **testsdp.html** - SDP testing utility
+- **status.html** - Status monitoring
+- **ptz.html** - Pan-Tilt-Zoom camera control
+
+## Usage
+
+1. Open `index.html` in a web browser to see all examples organized by category
+2. Click on any example to launch it
+3. View the source code of each example to understand the implementation
+
+## Notes
+
+- Examples may require specific VDO.Ninja features or permissions
+- Some examples work best when used with specific hardware or platforms
+- Always check browser console for debugging information
+- Many examples include inline documentation in their source code

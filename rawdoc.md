@@ -385,7 +385,7 @@ Versus.cam is the upcoming and standalone replacement for the [vdo.ninja/monitor
 * It contains a larger and dedicated graph per scene/view link than what the [vdo.ninja/beta/'s ](https://vdo.ninja/beta/)director room has under scene-stats. Both color code to indicate packet loss, where red is bad, and green is good.&#x20;
 * It is setup to use a group room by default, with a very simple interface to login and get started without visiting vdo.ninja itself.&#x20;
 * Despite having a group room by default, it works with standalone push/view links as well, via the "Add a stream manually" button, which lets you include normal view links that exist outside rooms.
-* All the scene links and invite links are preconfigured for E-Sports , where video is set to pull around 20-mbps for smooth 1080p60 game play. The idea is, if you choose to use this page for creating links, it's all already setup to be used for ingestion.
+* All the scene links and invite links are preconfigured for E-Sports , where video is set to pull around 20-Mbps for smooth 1080p60 game play. The idea is, if you choose to use this page for creating links, it's all already setup to be used for ingestion.
 * The room is configured so that guests cannot see or talk to each other. All guests can do is text-chat with the versus host.
 
 * Versus.cam is compatible with a director and the director room, so you can use a director room AND the Versus.cam room at the same time, without conflict.
@@ -1067,9 +1067,9 @@ In some cases, the functionality of [VDO.Ninja](https://vdo.ninja) may overlap w
 * Compatible with most modern browsers and mobile devices.
 * **Free support** offered via email, Discord, Reddit and numerous written guides.
 * **Video data is peer-to-peer**, so unlike Skype, your video data does not go thru the NSA's spying servers.
-* **Video can be transferred over a LAN directly**, so if using your phone as a webcam, you can crank the bitrates up to 40-mbps if you want, and your bandwidth won't be affected.
+* **Video can be transferred over a LAN directly**, so if using your phone as a webcam, you can crank the bitrates up to 40-Mbps if you want, and your bandwidth won't be affected.
 * **Low latency**. I'm talking as low as 30-ms, and normally it never goes higher than 200-ms.
-* **Adjustable resolutions and video bitrates** (1920x1080p60 @ 30-mbps -- or even custom resolutions). 4K @ 30fps is possible, but CPU intensive.
+* **Adjustable resolutions and video bitrates** (1920x1080p60 @ 30-Mbps -- or even custom resolutions). 4K @ 30fps is possible, but CPU intensive.
 * **Control over audio denoise**, **echo-cancellation**, and **auto-gain** is available, along with custom audio bitrates, and **stereo-sound**. It is an exceptional tool for podcasters and live streaming DJs.
 * You can **parameterize many aspects of VDO.Ninja** such as total bitrate usage, bitrate per viewer usage, auto-select a device, autostart a session, removing the preview window.
 * The interface is **open-source**, so you can white-label, stylize, tweak, and deploy the website code however you want.
@@ -6883,7 +6883,7 @@ Example: `&maxbandwidth=80`
 
 Made a new bitrate option called `&maxbandwidth`, which differs from other commands as it leverages a chromium (chrome/edge/brave/electron) feature to judge the available bandwidth of a sender's connection. Passing a value to it as the sender (a percentage; 1 to 100 ideally), you can try to ensure the connection never uses more than that amount of the available reported bandwidth.
 
-So the notion is, if you want to set the invite link bitrate to 50-mbps, but one guest only has only a 20-mbps connection, `&maxbandwidth=80` will try to limit the bitrate to around 16-mbps. I sometimes will tell people to set the bit rate to about 80% of what their connection can allow, as higher than that can result in some frame stutter when there is packet loss, since the connection lacks headroom to recover. This command will try to do it automatically, for all the viewers of a stream.
+So the notion is, if you want to set the invite link bitrate to 50-Mbps, but one guest only has only a 20-Mbps connection, `&maxbandwidth=80` will try to limit the bitrate to around 16-Mbps. I sometimes will tell people to set the bit rate to about 80% of what their connection can allow, as higher than that can result in some frame stutter when there is packet loss, since the connection lacks headroom to recover. This command will try to do it automatically, for all the viewers of a stream.
 
 My goal here is to use it with the [Mixer App](../../steves-helper-apps/mixer-app.md) or [Versus.cam](../../steves-helper-apps/versus.cam.md), so eSports users can crank out high bitrates with less tinkering per guest. I have no idea how well it will work in practice so far.
 
@@ -7019,7 +7019,7 @@ Example: `&totalscenebitrate=4000`
 
 Mainly added to help offer another way to optimize performance and limit inbound bandwidth used, since why not.
 
-This is similar to [`&totalroombitrate`](totalroombitrate.md), but `&totalscenebitrate` applies to scenes and faux-room scenes instead. That is, it splits the total bitrate available for playback by the number of videos in the scene. It's a way to keep the inbound bitrate below a certain threshold. If [`&videobitrate`](bitrate.md) is also used, [`&videobitrate`](bitrate.md) becomes a max limit on any individual video, so you can set `&totalscenebitrate=6000` and [`&videobitrate=2000`](bitrate.md), to keep all videos below 2-mbps each, but potentially go lower if more than 3 videos are present.
+This is similar to [`&totalroombitrate`](totalroombitrate.md), but `&totalscenebitrate` applies to scenes and faux-room scenes instead. That is, it splits the total bitrate available for playback by the number of videos in the scene. It's a way to keep the inbound bitrate below a certain threshold. If [`&videobitrate`](bitrate.md) is also used, [`&videobitrate`](bitrate.md) becomes a max limit on any individual video, so you can set `&totalscenebitrate=6000` and [`&videobitrate=2000`](bitrate.md), to keep all videos below 2-Mbps each, but potentially go lower if more than 3 videos are present.
 
 ## Related
 
@@ -7091,7 +7091,7 @@ This parameter is only for scenes and solo links. Use [`&totalroombitrate`](tota
 
 Default value will target around **2500**-kbps.
 
-The maximum achievable bitrate is around 60,000-kbps (60-mbps).
+The maximum achievable bitrate is around 60,000-kbps (60-Mbps).
 
 **Lowering** the bitrate can sometimes **reduce CPU load**, **bandwidth**, and **stuttering** issues
 
@@ -7568,7 +7568,7 @@ You can change the frame rate dynamically, as the sender, via the settings -> vi
 
 Unless using [`&chunked`](../../newly-added-parameters/and-chunked.md) mode or a WHIP/WHEP source, it generally isn't possible to force a specific encoded frame rate. The system will try to keep the frame rate that's encoded and sent close to the captured frame rate, but it may drop due to packet loss, CPU limitations, or during moments of insufficient bitrate.
 
-If screen sharing, window, vs. tab, vs. display capture methods can result in different max frame rates. Refer to the screen sharing section for details, but consider experimenting with different methods and browsers to find something that works for you. If screen sharing a game, consider setting the bitrate to at least 12- to 20-mbps, to keep the encoded frame rates steady.
+If screen sharing, window, vs. tab, vs. display capture methods can result in different max frame rates. Refer to the screen sharing section for details, but consider experimenting with different methods and browsers to find something that works for you. If screen sharing a game, consider setting the bitrate to at least 12- to 20-Mbps, to keep the encoded frame rates steady.
 
 #### Compatibility and flicker with 24, 25, 50, and 144-hz frame rates
 
@@ -11048,7 +11048,7 @@ Sometimes two peers just can't get a good connection, while with other peers the
 * Using [`&chunked`](../newly-added-parameters/and-chunked.md) mode on the sender's side can enable an alternative way of sending video data, but this option is only supported by Chrome and other Chromium-based browsers. It also is fairly CPU intensive and may require some tweaking of bitrates and buffers to have it work well for you situation
 * Try using [`&codec=av1`](../advanced-settings/view-parameters/codec.md#av1) on the viewer side; this won't solve packet loss issues, but the AV1 codec is more efficient than the default codecs, and so it may offer better video quality despite the packet loss.
 * Try adding [`&buffer=500`](../advanced-settings/view-parameters/buffer.md) to the viewer link, as this might allow for more time for lost packets to arrive.
-* Reduce the bitrate of your video streams. If your connection can only handle 30-mbps in and 10-mbps out, trying to push it to do more will cause network thrashing and packet loss. In this case, try to ensure that your connection's up and download links are not saturated by more than 80% of their tested max capacity. Leaving some headroom will reduce latency and packet loss, ultimately leading to better quality.
+* Reduce the bitrate of your video streams. If your connection can only handle 30-Mbps in and 10-Mbps out, trying to push it to do more will cause network thrashing and packet loss. In this case, try to ensure that your connection's up and download links are not saturated by more than 80% of their tested max capacity. Leaving some headroom will reduce latency and packet loss, ultimately leading to better quality.
 * Consider using Meshcast or a WHIP/WHEP server-based SFU provider, and use that with VDO.Ninja instead of a direct peer-to-peer connection. I have a [guide for setting up Cloudflare ](https://cloudflare.vdo.ninja/)to be used in this regard, but any WHIP+WHEP SFU can work. This can provide more advanced buffering and SVC options not available with direct browser to browser options.
 * Use [Raspberry.Ninja](../steves-helper-apps/raspberry.ninja/) or OBS Studio's WHIP output as a video source, instead of the browser. Raspberry.Ninja in particular supports double redundant video streams for added error correction, and while it uses more bandwidth, it can tolerate heavy packet loss and force a specified video quality. While packet loss will still exist, you might find the outcome is more to your liking.
 * If screen sharing, you can use [`&contenthint=detail`](../advanced-settings/video-parameters/and-contenthint.md), which can tell the system to prioritize frame resolution, than frame rate. While this isn't suitable for gaming, it might be a good option for screen shares, where packet loss might otherwise might text unreadable.
@@ -12635,9 +12635,9 @@ The default frame rate is 60-fps, although if their device does not support that
 
 ## What about the bitrate?
 
-Next, while you might have selected 4K, with the exception of static video screen shares, you cannot transfer 4K video with the default video bitrates set. For action, you will need closer to 40-mbps video bitrates set on the viewer’s end. For talking head videos, you will want over 10-mbps and possibly even more. Without a high enough bitrate set, the video will not stream at 4K and more than likely not maintain 60-fps.
+Next, while you might have selected 4K, with the exception of static video screen shares, you cannot transfer 4K video with the default video bitrates set. For action, you will need closer to 40-Mbps video bitrates set on the viewer’s end. For talking head videos, you will want over 10-Mbps and possibly even more. Without a high enough bitrate set, the video will not stream at 4K and more than likely not maintain 60-fps.
 
-To set a target bitrate add [`&videobitrate=20000`](../advanced-settings/view-parameters/bitrate.md) for 20-mbps for example. This goes on the viewer link.
+To set a target bitrate add [`&videobitrate=20000`](../advanced-settings/view-parameters/bitrate.md) for 20-Mbps for example. This goes on the viewer link.
 
 ## Performance issues
 
@@ -12660,7 +12660,7 @@ Higher resolution streams, especially 1080p60, requires a LOT of CPU power. Havi
 
 Using Ethernet instead of Wi-Fi will also help to ensure the frame loss at these higher resolutions is managable. At higher resolutions, frame rates are more likely to be unstable.
 
-4K30 video is achievable with VDO.Ninja, with a fast enough computer and with very high video bitrates; often in the realm of 30 to 40-mbps.
+4K30 video is achievable with VDO.Ninja, with a fast enough computer and with very high video bitrates; often in the realm of 30 to 40-Mbps.
 
 As VDO.Ninja dynamically adjusts video resolution and bitrate to match the available Internet connection bandwidth availability, sometimes 1280x720 video resolutions won’t be maintainable. You can run the [https://vdo.ninja/speedtest](https://vdo.ninja/speedtest) to see if you are able to hit at least 2000-kbps, which is about what is needed for smooth 720p video.
 ---
@@ -13250,7 +13250,7 @@ One easy option is to buy a smartphone to Ethernet adapter; this can be either U
 
 You can find details on how to buy and connect such an adapter here: [https://www.pcmag.com/how-to/connect-phone-tablet-to-internet-ethernet-cable](https://www.pcmag.com/how-to/connect-phone-tablet-to-internet-ethernet-cable)
 
-If you'd need to be able to charge while connected, there are adapters that offer charging and Ethernet at the same time. I would recommend buying a 100-mbps adapter over a gigabit adapter, as compatibility will probably be better with the 100-mbps adapter and it is still more than sufficient. There's plenty of options on Amazon for under $20.
+If you'd need to be able to charge while connected, there are adapters that offer charging and Ethernet at the same time. I would recommend buying a 100-Mbps adapter over a gigabit adapter, as compatibility will probably be better with the 100-Mbps adapter and it is still more than sufficient. There's plenty of options on Amazon for under $20.
 
 ### Reverse tethering over USB
 
@@ -13507,7 +13507,7 @@ Also refer to [`&audiobitrate`](../advanced-settings/view-parameters/audiobitrat
 
 The bitrate controls are accessible via a URL parameter that can be added to the VIEW link.
 
-Something like [https://vdo.ninja/?view=yyyyy\&bitrate=10000 ](https://vdo.ninja/?view=yyyyy\&bitrate=10000)will let the viewer request set a 10-mbps bitrate; up to around 20000-kbps is reasonable, but higher is possible in situations. The value is in kilobits per second and the default bitrate is 2500-kbps.
+Something like [https://vdo.ninja/?view=yyyyy\&bitrate=10000 ](https://vdo.ninja/?view=yyyyy\&bitrate=10000)will let the viewer request set a 10-Mbps bitrate; up to around 20000-kbps is reasonable, but higher is possible in situations. The value is in kilobits per second and the default bitrate is 2500-kbps.
 
 The viewer sets the bitrate generally, although you can set maximum allowed bitrates as the publisher of a stream. See the advanced settings in the wiki for more help here; there are many options available.
 
@@ -13691,7 +13691,7 @@ description: >-
 
 ### Bandwidth requirements
 
-To maintain a high quality 1080p60 stream, especially if screen sharing game content, you'll want at least 12-mbps to 20-mbps of upload bandwidth.
+To maintain a high quality 1080p60 stream, especially if screen sharing game content, you'll want at least 12-Mbps to 20-Mbps of upload bandwidth.
 
 You'll also need a pristine Internet connection to maintain a low-latency and smooth result; you can test your connect at [https://vdo.ninja/speedtest](https://vdo.ninja/speedtest). High packet loss will limit the possibility of maintaining both low-latency and high quality video; in such a case, you'll need to prioritize one over the other.
 
@@ -13826,7 +13826,7 @@ You can explore using [`&meshcast`](../newly-added-parameters/and-meshcast.md) a
 
 Meshcast in particular can help stream 1080p video to multiple viewers at once, if the sender does not have a computer and network capable of doing so on their own.
 
-Meshcast may not always be able to achieve 20-mbps speeds, sometimes only 2 to 3-mbps is possible, so it may not always be the best option for those streaming e-sports.
+Meshcast may not always be able to achieve 20-Mbps speeds, sometimes only 2 to 3-Mbps is possible, so it may not always be the best option for those streaming e-sports.
 
 [screen-share-parameters](../advanced-settings/screen-share-parameters/)
 ---
@@ -13927,7 +13927,7 @@ Press the green button when ready.
 
 You’ll see a preview of your video stream and a link. This link is what we want to send to our remote OBS studio as an input source.
 
-We can modify this link if we wish to have higher bitrates, for example, [https://vdo.ninja/?view=streamID\&videobitrate=20000](https://vdo.ninja/?view=streamID\&videobitrate=20000) to set a target video bitrate of 20-mbps.
+We can modify this link if we wish to have higher bitrates, for example, [https://vdo.ninja/?view=streamID\&videobitrate=20000](https://vdo.ninja/?view=streamID\&videobitrate=20000) to set a target video bitrate of 20-Mbps.
 
 ![](https://lh5.googleusercontent.com/y4-K-FYPET5a-TEswgl\_FE-2IU5oSIMXH9o2lyjydhNZAqdIvussPvXS19BUmW2lte8fxDfw8dMyt5JT9H8TslLhNJfO5KTJB4xmsHbwSU7Ofq5xP2NU7fuxlPsZkgT82P6T1JxV5MzXdrM)
 
@@ -14033,9 +14033,9 @@ The native mobile app version of VDO.Ninja may at some point support additional 
 
 ## What about the bitrate?
 
-Next, while you might have selected 4K, with the exception of static video screen shares, you cannot transfer 4K video with the default video bitrates set. For action, you will need closer to 40-mbps video bitrates set on the viewer’s end. For talking head videos, you will want over 10-mbps and possibly even more. Without a high enough bitrate set, the video will not stream at 4K and more than likely not maintain 60-fps.
+Next, while you might have selected 4K, with the exception of static video screen shares, you cannot transfer 4K video with the default video bitrates set. For action, you will need closer to 40-Mbps video bitrates set on the viewer’s end. For talking head videos, you will want over 10-Mbps and possibly even more. Without a high enough bitrate set, the video will not stream at 4K and more than likely not maintain 60-fps.
 
-To set a target bitrate add [`&videobitrate=20000`](../advanced-settings/video-bitrate-parameters/bitrate.md) for 20-mbps for example. This goes on the viewer link.
+To set a target bitrate add [`&videobitrate=20000`](../advanced-settings/video-bitrate-parameters/bitrate.md) for 20-Mbps for example. This goes on the viewer link.
 
 ## Scaling
 
@@ -14053,7 +14053,7 @@ As a result, to successfully stream 4K video, you generally need a computer syst
 
 Lastly, MacOS users may find that 4K is simply not possible or very difficult. If you do manage to get it working, it might only operate at 5-fps or so. I don’t quite know why this is, but if you intend on sharing 4K video, you might be better off using a Windows PC. It seems to perform better.
 
-We've successfully streamed 4K50 over 5G cellular Internet at 65-mbps using a MacBook Air M1 and VDO.Ninja.
+We've successfully streamed 4K50 over 5G cellular Internet at 65-Mbps using a MacBook Air M1 and VDO.Ninja.
 ---
 description: Window sharing into Zoom with the Electron Capture app
 ---
@@ -21600,7 +21600,7 @@ Versus.cam is the upcoming and standalone replacement for the [vdo.ninja/monitor
 * It contains a larger and dedicated graph per scene/view link than what the [vdo.ninja/beta/'s ](https://vdo.ninja/beta/)director room has under scene-stats. Both color code to indicate packet loss, where red is bad, and green is good.&#x20;
 * It is setup to use a group room by default, with a very simple interface to login and get started without visiting vdo.ninja itself.&#x20;
 * Despite having a group room by default, it works with standalone push/view links as well, via the "Add a stream manually" button, which lets you include normal view links that exist outside rooms.
-* All the scene links and invite links are preconfigured for E-Sports , where video is set to pull around 20-mbps for smooth 1080p60 game play. The idea is, if you choose to use this page for creating links, it's all already setup to be used for ingestion.
+* All the scene links and invite links are preconfigured for E-Sports , where video is set to pull around 20-Mbps for smooth 1080p60 game play. The idea is, if you choose to use this page for creating links, it's all already setup to be used for ingestion.
 * The room is configured so that guests cannot see or talk to each other. All guests can do is text-chat with the versus host.
 
 * Versus.cam is compatible with a director and the director room, so you can use a director room AND the Versus.cam room at the same time, without conflict.

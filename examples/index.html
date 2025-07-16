@@ -2,8 +2,8 @@
 	<link rel="stylesheet" href="https://vdo.ninja/main.css" />
 	<style>
 		.container {
-			max-width: 900px;
-			width: fit-content;
+			max-width: 1200px;
+			width: 95%;
 			margin: 0 auto;
 		}
 		
@@ -13,6 +13,14 @@
 
 		h1 {
 			margin-top: 3em;
+			text-align: center;
+		}
+		
+		.intro {
+			text-align: center;
+			margin: 2em auto;
+			max-width: 800px;
+			color: #ccc;
 		}
 
 		h2 {
@@ -22,47 +30,106 @@
 			color: white;
 			border-bottom: 2px solid #3b6a87;
 			text-align: center;
+			margin: 0;
 		}
 
 		h2 a {
 			color: white !important;
+			text-decoration: none;
+		}
+		
+		h2 a:hover {
+			text-decoration: underline;
 		}
 
 		#examples {
 			margin-top: 3em;
 			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
-			grid-gap: 1em;
+			grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+			grid-gap: 1.5em;
 		}
 
-
 		div#examples>div {
-			background: #dddddd;
-			color: black;
+			background: #2c2c2c;
+			color: white;
+			border: 1px solid #444;
+			border-radius: 8px;
+			overflow: hidden;
+			transition: transform 0.2s, box-shadow 0.2s;
+		}
+		
+		div#examples>div:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 		}
 
 		.description {
 			padding: 1em;
 			display: block;
+			min-height: 60px;
+			color: #ddd;
+			font-size: 0.95em;
 		}
 
 		.youtube {
-			display: block;
-			text-align: right;
+			display: inline-block;
+			margin-right: 0.5em;
+		}
+		
+		.github {
+			display: inline-block;
+			margin-right: 0.5em;
 		}
 
 		.media {
-			background: hsl(203deg 26% 73%);
+			background: rgba(69, 123, 157, 0.3);
 			display: block;
 			width: 100%;
-			padding: 0.2em;
+			padding: 0.5em;
+			text-align: right;
+			border-top: 1px solid #457b9d;
+		}
+		
+		.media img {
+			width: 20px;
+			height: 20px;
+			vertical-align: middle;
+		}
+		
+		.category {
+			grid-column: 1 / -1;
+			margin-top: 2em;
+			margin-bottom: 1em;
+			padding: 0.5em;
+			background: rgba(69, 123, 157, 0.2);
+			border-left: 4px solid #457b9d;
+			font-size: 1.3em;
+			color: white;
+		}
+		
+		.deprecated {
+			opacity: 0.7;
+		}
+		
+		.deprecated h2 {
+			background-color: #666;
+			border-bottom-color: #555;
+		}
+		
+		.new {
+			border: 2px solid #4CAF50;
+		}
+		
+		.new h2 {
+			background-color: #4CAF50;
+			border-bottom-color: #45a049;
 		}
 	</style>
 </head>
 
 <body style='color:white'>
 	<div id="header">
-		<a id="logoname" href="./" style="text-decoration: none; color: white; margin: 2px">
+		<a id="logoname" href="../" style="text-decoration: none; color: white; margin: 2px">
 			<span data-translate="logo-header">
 				<font id="qos">V</font>DO.Ninja
 			</span>
@@ -70,116 +137,312 @@
 	</div>
 	<div class="container">
 		<div id="info">
-			<h1>VDO.Ninja tech demonstrations</h1>
+			<h1>VDO.Ninja Examples & Demos</h1>
+			<p class="intro">
+				A collection of examples demonstrating various features and integration possibilities with VDO.Ninja. 
+				These examples show how to use the iframe API, custom overlays, remote control features, and more.
+			</p>
+			
 			<div id="examples">
+				<!-- Core API Examples -->
+				<div class="category">🔧 Core API & Integration</div>
+				
 				<div>
-					<h2><a href='p2p.html'>p2p</a></h2>
-					<div class="description">How to use vdo.ninja as a data transport tunneling service</div>
+					<h2><a href='p2p.html'>P2P Data Transport</a></h2>
+					<div class="description">Demonstrates how to use VDO.Ninja as a peer-to-peer data transport and tunneling service for custom applications</div>
 				</div>
+				
 				<div>
-					<h2><a href='twitch.html'>twitch</a></h2>
-					<div class="description">How to have a twitch live chat side-by-side with VDO.NInja on the same
-						screen</div>
+					<h2><a href='iframe.outbound-stats.html'>Outbound Stats API</a></h2>
+					<div class="description">Shows how to retrieve detailed outbound streaming statistics using the iframe API</div>
 				</div>
+				
 				<div>
-					<h2><a href='youtube.html'>youtube</a></h2>
-					<div class="description">How to have a youtube live chat side-by-side with VDO.NInja on the same
-						screen</div>
+					<h2><a href='iframe.inbound-stats.html'>Inbound Stats API</a></h2>
+					<div class="description">Shows how to retrieve detailed inbound streaming statistics using the iframe API</div>
 				</div>
+				
 				<div>
-					<h2><a href='dual.html'>dual</a></h2>
-					<div class="description">how to have two VDO.Ninja windows (or any windows really) open on the same
-						page;
-						Picture-in-Picture style</div>
+					<h2><a href='remoteapi.html'>Remote API Control</a></h2>
+					<div class="description">Demonstrates remote control capabilities through the VDO.Ninja API</div>
 				</div>
+				
 				<div>
-					<h2><a href='multi.html?rooms=room1xx,room2xx,room3xx'>Multiple rooms</a></h2>
-					<div class="description">how to have multiple director rooms open in a single tab; note the URL's ?rooms=xx,yy command</div>
+					<h2><a href='httpwssapi.md'>HTTP/WSS API Docs</a></h2>
+					<div class="description">Documentation for the HTTP and WebSocket API endpoints</div>
 				</div>
+				
+				<!-- UI & Layout Examples -->
+				<div class="category">🎨 UI & Layout Customization</div>
+				
 				<div>
-					<h2><a href='https://versus.cam'>versus.cam</a></h2>
-					<div class="description">How to use the IFRAME API to transport audio and video to the parent frame in Chrome</div>
+					<h2><a href='draggable.html'>Draggable Windows</a></h2>
+					<div class="description">Create custom layouts by dragging multiple video windows around the screen (experimental)</div>
 				</div>
+				
 				<div>
-					<h2><a href='addtoscene.html'>add to scene</a></h2>
-					<div class="description">How to use the IFRAME API to add/remove guests to a scene remotely</div>
+					<h2><a href='grid.html'>Grid Layout</a></h2>
+					<div class="description">Example of a custom grid layout for multiple video streams</div>
 				</div>
+				
 				<div>
-					<h2><a href='bigmutebutton.html'>big mute button</a></h2>
-					<div class="description">Mobile-friendly big-button for muting yourself easily</div>
+					<h2><a href='rotated.html'>Rotated Video</a></h2>
+					<div class="description">Shows how to rotate video elements for creative layouts</div>
 				</div>
+				
 				<div>
-					<h2><a href='sensors.html'>sensors</a></h2>
+					<h2><a href='custom_overlay.html'>Custom Overlay</a></h2>
+					<div class="description">How to create custom overlays on top of VDO.Ninja video streams</div>
+				</div>
+				
+				<div>
+					<h2><a href='overlay.html'>Basic Overlay</a></h2>
+					<div class="description">Simple overlay example for adding graphics to streams</div>
+				</div>
+				
+				<div>
+					<h2><a href='test_overlay.html'>Test Overlay</a></h2>
+					<div class="description">Testing framework for overlay development</div>
+				</div>
+				
+				<div>
+					<h2><a href='labelonly.html'>Labels Only View</a></h2>
+					<div class="description">Display only the labels/names without video for a minimal interface</div>
+				</div>
+				
+				<div>
+					<h2><a href='custom_labels.html'>Custom Labels</a></h2>
+					<div class="description">How to create and style custom labels for video streams</div>
+				</div>
+				
+				<!-- Room & Scene Management -->
+				<div class="category">🎬 Room & Scene Management</div>
+				
+				<div>
+					<h2><a href='multi.html?rooms=room1xx,room2xx,room3xx'>Multiple Rooms</a></h2>
+					<div class="description">Manage multiple director rooms in a single browser tab</div>
+				</div>
+				
+				<div>
+					<h2><a href='addtoscene.html'>Add to Scene</a></h2>
+					<div class="description">Dynamically add or remove guests to/from scenes using the iframe API</div>
+				</div>
+				
+				<div>
+					<h2><a href='waitingroom.html'>Waiting Room</a></h2>
+					<div class="description">Implementation of a waiting room for guests before joining the main session</div>
+				</div>
+				
+				<div>
+					<h2><a href='kick.html'>Kick Guest</a></h2>
+					<div class="description">Example of how to remove/kick guests from a room</div>
+				</div>
+				
+				<!-- Control & Interaction -->
+				<div class="category">🎮 Control & Interaction</div>
+				
+				<div>
+					<h2><a href='control.html'>Control Interface</a></h2>
+					<div class="description">Custom control interface for managing VDO.Ninja sessions</div>
+				</div>
+				
+				<div>
+					<h2><a href='bigmutebutton.html'>Big Mute Button</a></h2>
+					<div class="description">Mobile-friendly large mute button for easy access during streams</div>
+				</div>
+				
+				<div>
+					<h2><a href='muteguestiframe.html'>Mute Guest (iframe)</a></h2>
+					<div class="description">Control guest audio through iframe API commands</div>
+				</div>
+				
+				<div>
+					<h2><a href='custom_video_switcher.html'>Video Switcher</a></h2>
+					<div class="description">Custom video switching interface for multi-camera setups</div>
+				</div>
+				
+				<div>
+					<h2><a href='switchmics.html'>Switch Microphones</a></h2>
+					<div class="description">Interface for switching between multiple microphone inputs</div>
+				</div>
+				
+				<div>
+					<h2><a href='slidingzoom.html'>Sliding Zoom Control</a></h2>
+					<div class="description">Smooth zoom control interface with sliding mechanism</div>
+				</div>
+				
+				<div>
+					<h2><a href='ptz.html'>PTZ Camera Control</a></h2>
+					<div class="description">Pan, Tilt, and Zoom control interface for PTZ cameras</div>
+				</div>
+				
+				<!-- Hardware & Sensors -->
+				<div class="category">📱 Hardware & Sensors</div>
+				
+				<div>
+					<h2><a href='sensors.html'>Mobile Sensors</a></h2>
 					<div class="media">
 						<a href='https://www.youtube.com/watch?v=SqbufszHKi4' class="youtube">
 							<img src="youtube.svg" />
 						</a>
 					</div>
-					<div class="description">how to transmit sensor and video data from a phone to a computer, drawing
-						it to canvas.
-					</div>
+					<div class="description">Transmit accelerometer and gyroscope data from mobile devices</div>
 				</div>
+				
 				<div>
-					<h2><a href='sensoroverlay.html'>sensor overlay</a></h2>
-					
-					<div class="description">Overlay the incoming speed from remote mobile sensor data onto your video
-					</div>
+					<h2><a href='sensoroverlay.html'>Sensor Data Overlay</a></h2>
+					<div class="description">Display real-time sensor data (like speed) as an overlay on video</div>
 				</div>
+				
 				<div>
-					<h2><a href='../midi.html'>midi</a></h2>
+					<h2><a href='gamecontroller.html'>Game Controller</a></h2>
+					<div class="description">Use game controllers as input devices for stream control</div>
+				</div>
+				
+				<div>
+					<h2><a href='webhid.html'>WebHID Devices</a></h2>
+					<div class="description">Interface with USB HID devices like Stream Deck (not mouse/keyboard)</div>
+				</div>
+				
+				<div>
+					<h2><a href='wireless.html'>Wireless Control</a></h2>
+					<div class="description">Wireless device integration and control examples</div>
+				</div>
+				
+				<div>
+					<h2><a href='midi.html'>MIDI Control</a></h2>
 					<div class="media">
 						<a href='https://www.youtube.com/watch?v=rnZ8HM9FL4I' class="youtube">
 							<img src="youtube.svg" />
 						</a>
 					</div>
-					<div class="description">Demonstrates the MIDI API for VDO.Ninja
-
-					</div>
+					<div class="description">Control VDO.Ninja with MIDI devices and controllers</div>
 				</div>
+				
+				<!-- Streaming Platforms -->
+				<div class="category">📺 Platform Integration</div>
+				
 				<div>
-					<h2><a href='draggable.html'>draggable</a></h2>
-					<div class="description">demonstrates how to drag multiple
-						windows around, if you wanted to create a custom
-						layout of elements. (experimental)</div>
+					<h2><a href='twitch.html'>Twitch Integration</a></h2>
+					<div class="description">Display Twitch chat alongside VDO.Ninja streams</div>
 				</div>
+				
 				<div>
-					<h2><a href='chatoverlay.html'>chat</a></h2>
-					<div class="description">Example of a chat-only interface for VDO.Ninja; maybe
-						dockable into OBS even.</div>
+					<h2><a href='youtube.html'>YouTube Integration</a></h2>
+					<div class="description">Display YouTube live chat alongside VDO.Ninja streams</div>
 				</div>
+				
 				<div>
-					<h2><a href='iframe.outbound-stats.html'>iframe.outbound-stats</a></h2>
-					<div class="description">iframe.outbound-stats.html demostrates how to get stats from VDO.Ninja
-						using the
-						IFRAME API</div>
-				</div>
-				<div>
-					<h2><a href='changepass.html'>changepass</a></h2>
-					<div class="description">lets you create passwords and related HASH values for VDO.NInja
-						rooms</div>
-				</div>
-				<div>
-					<h2><a href='webhid.html'>webhid</a></h2>
-					<div class="description">webhid demonstrates how to interface with a USB device, like a streamdeck
-						(mouse/keyboard not supported)</div>
-				</div>
-				<div>
-					<h2><a href='zoom.html'>zoom</a></h2>
-					<div class="description">A tool for letting you publish into VDO.Ninja, but then
-						full-screen the window once setup, allowing for
-						window-capturing into zoom.</div>
-				</div>
-				<div>
-					<h2><a href='obs_remote/index.html'>obs_remote</a></h2>
+					<h2><a href='obs_remote/index.html'>OBS Remote Control</a></h2>
 					<div class="media">
-					<a href='https://github.com/steveseguin/remote_ninja' class="youtube">
-						<img src="github.svg" />
-					</a>
+						<a href='https://github.com/steveseguin/remote_ninja' class="github">
+							<img src="github.svg" />
+						</a>
 					</div>
-
-					<div class="description">Also hosted on github elsewhere, but it's an example of how to remotely
-						control OBS using VDO.Ninja's tunneling abilities</div>
+					<div class="description">Remotely control OBS Studio through VDO.Ninja's tunneling</div>
+				</div>
+				
+				<div>
+					<h2><a href='obsremote.html'>OBS Remote (Simple)</a></h2>
+					<div class="description">Simplified OBS remote control interface</div>
+				</div>
+				
+				<!-- Specialized Applications -->
+				<div class="category">🚀 Specialized Applications</div>
+				
+				<div>
+					<h2><a href='teleprompter.html'>Teleprompter</a></h2>
+					<div class="description">Full-featured teleprompter application with speed control</div>
+				</div>
+				
+				<div>
+					<h2><a href='teleprompt.html'>Teleprompter (Simple)</a></h2>
+					<div class="description">Simplified teleprompter for basic scrolling text</div>
+				</div>
+				
+				<div>
+					<h2><a href='powerpoint.html'>PowerPoint Control</a></h2>
+					<div class="description">Remote control for PowerPoint presentations</div>
+				</div>
+				
+				<div>
+					<h2><a href='esports.html'>Esports Layout</a></h2>
+					<div class="description">Specialized layout for esports streaming and tournaments</div>
+				</div>
+				
+				<div>
+					<h2><a href='mixer.html'>Audio/Video Mixer</a></h2>
+					<div class="description">Multi-source audio and video mixing interface</div>
+				</div>
+				
+				<div>
+					<h2><a href='socal.html'>Social Overlay</a></h2>
+					<div class="description">Social media integration and overlay system</div>
+				</div>
+				
+				<!-- Communication -->
+				<div class="category">💬 Communication Features</div>
+				
+				<div>
+					<h2><a href='chatoverlay.html'>Chat Overlay</a></h2>
+					<div class="description">Chat-only interface that can be docked into OBS</div>
+				</div>
+				
+				<div>
+					<h2><a href='googleai.html'>Google AI Integration</a></h2>
+					<div class="description">Integration with Google AI services for enhanced features</div>
+				</div>
+				
+				<!-- Utility Examples -->
+				<div class="category">🛠️ Utilities</div>
+				
+				<div>
+					<h2><a href='dual.html'>Dual Windows</a></h2>
+					<div class="description">Picture-in-Picture style layout with two VDO.Ninja instances</div>
+				</div>
+				
+				<div>
+					<h2><a href='zoom.html'>Zoom Mode</a></h2>
+					<div class="description">Fullscreen mode optimized for window capture in Zoom</div>
+				</div>
+				
+				<div>
+					<h2><a href='changepass.html'>Password Generator</a></h2>
+					<div class="description">Create secure passwords and hash values for VDO.Ninja rooms</div>
+				</div>
+				
+				<div>
+					<h2><a href='status.html'>Connection Status</a></h2>
+					<div class="description">Monitor connection status and quality metrics</div>
+				</div>
+				
+				<div>
+					<h2><a href='simplelink.html'>Simple Link Generator</a></h2>
+					<div class="description">Basic interface for generating VDO.Ninja links</div>
+				</div>
+				
+				<div>
+					<h2><a href='testsdp.html'>SDP Testing</a></h2>
+					<div class="description">Test and debug Session Description Protocol data</div>
+				</div>
+				
+				<!-- External -->
+				<div class="category">🌐 External Projects</div>
+				
+				<div>
+					<h2><a href='https://versus.cam'>Versus.cam</a></h2>
+					<div class="description">Advanced iframe API usage for audio/video transport between frames</div>
 				</div>
 			</div>
+			
+			<div style="margin-top: 4em; padding: 2em; text-align: center; color: #888;">
+				<p>Looking for more documentation?</p>
+				<p>
+					<a href="iframeapi.md" style="color: #457b9d;">📄 iframe API Documentation</a> | 
+					<a href="readme.md" style="color: #457b9d;">📖 Examples README</a> | 
+					<a href="https://docs.vdo.ninja" style="color: #457b9d;">📚 Full Documentation</a>
+				</p>
+			</div>
 		</div>
+	</div>
 </body>

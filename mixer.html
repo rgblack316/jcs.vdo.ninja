@@ -22,6 +22,17 @@
 		--chat-width: 450px;
 		--iframe-width: 1280px;
 		--iframe-height: 720px;
+		--primary-color: #2e445c;
+		--primary-light: #3b5a78;
+		--primary-dark: #20324a;
+		--accent-color: #4a89dc;
+		--accent-hover: #3b7dd8;
+		--text-color: #333;
+		--text-light: #f8f9fa;
+		--border-radius: 6px;
+		--shadow-soft: 0 4px 6px rgba(0,0,0,0.1);
+		--shadow-strong: 0 10px 20px rgba(0,0,0,0.15);
+		--transition-speed: 0.3s;
 	}
 	
 	body {
@@ -32,9 +43,10 @@
 		overflow: auto;
 		position: absolute;
 		border-radius: 50px;
-		background: #2e445c;
 		box-shadow:  20px 20px 60px #273a4e, -20px -20px 60px #354e6a;
 		scrollbar-color:#666 #201c29;
+		background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+		color: var(--text-light);
 	}
 	textarea {
 		width:100%;
@@ -104,7 +116,7 @@
 		background-color: #0004;
 		margin: 0 10px 10px 0;
 		border-radius: 5px;
-		overflow-y:scroll;
+		overflow-y: auto;
 		overflow-wrap: anywhere;
 		bottom: 45px;
 		position: absolute;
@@ -154,7 +166,7 @@
 		display: inline-block;
 		color: #000;
 		background-color: #FFFE;
-		width: 324px;
+		width: 320px;
 		font-size: 105%;
 		margin-left: 7px;
 	}
@@ -175,7 +187,7 @@
 		z-index:1;
 	}
 	#chatSendBar{
-		display: inline-block;
+		display: flex;
 		bottom: 0px;
 		position:absolute;
 	}
@@ -207,7 +219,7 @@
 		background: rgb(225,225,225); /* Old browsers */
 		background: -moz-linear-gradient(-45deg, rgba(255,255,255,1) 0%, rgba(241,241,241,1) 50%, rgba(225,225,225,1) 51%, rgba(246,246,246,1) 100%); /* FF3.6-15 */
 		background: -webkit-linear-gradient(-45deg, rgba(255,255,255,1) 0%,rgba(241,241,241,1) 50%,rgba(225,225,225,1) 51%,rgba(246,246,246,1) 100%); /* Chrome10-25,Safari5.1-6 */
-		background: linear-gradient(135deg, rgba(255,255,255,1) 0%,rgba(241,241,241,1) 50%,rgba(225,225,225,1) 51%,rgba(246,246,246,1) 100%); 
+		background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%,rgba(241,241,241,1) 50%,rgba(225,225,225,1) 51%,rgba(246,246,246,0.6) 100%);
 	}
 	
 	#containerMenu{
@@ -250,7 +262,17 @@
 		padding: 6px 0.25em 0.25em 0.25em!important;
 		outline: dashed 2px black!important;
 	}
-	.thing:hover{
+	
+	.thing {
+	  background: rgba(30, 40, 60, 0.9);
+	  border: 1px solid rgba(255, 255, 255, 0.2);
+	  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	  transition: all var(--transition-speed) ease;
+	}
+
+	.thing:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 		animation: horizontalShake 2s;
 		animation-iteration-count: 1;
 	}
@@ -478,14 +500,6 @@
 	    margin-bottom: 6px;
 	}
 	
-	.settings {
-		display: block;
-		background: #c0e3ff;
-		position: absolute;
-		top: 100px;
-		left: 100px;
-		z-Index:20;
-	}
 
 	.hidden {
 		display:none!important;
@@ -538,11 +552,13 @@
 		width: 130px;
 		height: calc(100vh - 20px);
 		padding: 5px;
-		border: 1px solid;
-		border-radius: 5px;
 		position: relative;
 		float: left;
 		user-select: none;
+		background-color: rgba(0, 0, 0, 0.2);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: var(--border-radius);
+		box-shadow: var(--shadow-soft);
 	}
 	.pressed>canvas{
 		box-shadow: inset 2px 2px 10px #0007, inset -2px -2px 10px #0007;
@@ -555,7 +571,7 @@
 	button.pressed {
 		background-color: #CEF;
 	}
-	.editButton{
+	.editButton {
 		display:none;
 		position: absolute;
 		z-index: 2;
@@ -564,29 +580,47 @@
 		margin: 2px;
 		height: 28px;
 		line-height: 0px;
-		border-radius: 14px;
+		background-color: var(--accent-color);
+		color: white;
+		border-radius: 50%!important;
+		opacity: 0.8;
+		transition: all var(--transition-speed) ease;
 	}
-	.editButton[data-state="active"]{
+	.editButton:hover {
+		opacity: 1;
+		transform: translateY(-2px);
+	}
+	.editButton[data-state="active"] {
 		display:block!important;
-		background: #defffd;
-		border: #166b49 solid 2px;
+		background: #25d366;
+		border: 2px solid white;
 	}
-	.setButton{
+	.setButton {
 		display:none;
 		position:absolute;
 		margin: 20px 57px;
 		z-index:2;
 	}
-	.canvasContainer{
+	.canvasContainer {
 		display:inline-block;
 		
 	}
-	.canvasContainer>canvas{
+	.canvasContainer>canvas {
 		transform: scale(calc(  var(--aspect-ratio) / (16 / 9)), 1);
 		
 	}
 	.canvasContainer:hover>canvas{
 		box-shadow: 0 0 6px #273a4e, 0 0px 6px #fffC;
+	}
+	
+	.canvasContainer canvas {
+	  border-radius: var(--border-radius);
+	  box-shadow: var(--shadow-soft);
+	  transition: all var(--transition-speed) ease;
+	}
+
+	.canvasContainer:hover canvas {
+	  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 	}
 	
 	#containermenu canvas{
@@ -595,6 +629,30 @@
 	
 	#sources button {
 		cursor:pointer!important;
+	}
+	
+	button:not(.randomRoomName) {
+	  background: #fff;
+	  color: var(--text-color);
+	  border: none;
+	  border-radius: var(--border-radius);
+	  padding: 7px 10px;
+	  margin: 4px;
+	  cursor: pointer;
+	  font-weight: 500;
+	  transition: all var(--transition-speed) ease;
+	  box-shadow: var(--shadow-soft);
+	}
+
+	button:not(.randomRoomName):hover {
+	  background: #f0f0f0;
+	  transform: translateY(-2px);
+	  box-shadow: var(--shadow-strong);
+	}
+
+	button.pressed, button[data-state='true'] {
+	  background-color: var(--accent-color) !important;
+	  color: white;
 	}
 	
 	
@@ -638,6 +696,7 @@
 		padding: 4px;
 		border-radius: 6px;
 		cursor:pointer;
+		text-align: center;
 	}
 	
 	[title]{
@@ -722,6 +781,7 @@
 	  background-color: rgb(0, 0, 0);
 	  background-color: rgba(0, 0, 0, 0.5);
 	  z-Index: 20;
+	  color: black;
 	}
 	.modal-content {
 	  position: relative; 
@@ -757,6 +817,21 @@
 	@keyframes animatetop {
 	  from {top:-300px; opacity:0}
 	  to {top:0; opacity:1}
+	}
+	
+	#searchResults img:hover {
+		transform: scale(1.05);
+		transition: transform 0.2s ease;
+		box-shadow: 0 0 8px rgba(0,0,0,0.3);
+	}
+	
+	#searchResults {
+		background-color: #939393;
+		margin-top: 20px; 
+		max-height: 400px; 
+		overflow-y: auto; 
+		display: flex; 
+		flex-wrap: wrap;
 	}
 	
 	#welcomeWindow{
@@ -830,9 +905,10 @@
 		color: #0066aa !important;
 		text-decoration: none;
 	}
-	button.menuButtons{
+	.menuButtons{
 		background-color: #b4c5ca !important;
-		background: linear-gradient(135deg, #c2d2d7 60%,#c7d3d7 80%, #a3b5ba 100%)
+		width: 92%;
+		background: linear-gradient(to bottom, #ffffff 0%, #f5f5f5 100%);
 	}
 	.context-menu__link:hover {
 		color: #fff !important;
@@ -960,7 +1036,178 @@
 		bottom: 1px;
 		position: relative;
 	}
+	.textOverlay {
+		pointer-events: none;
+		text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+		max-width: 100%;
+		overflow: hidden;
+		padding: 5px;
+	}
 	
+	
+	.settings {
+	  background: #f8f9fa;
+	  border-radius: 10px;
+	  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	  padding: 15px;
+	  width: 420px;
+	  max-width: 90vw; /* Prevent horizontal overflow */
+	  max-height: 80vh; /* Prevent vertical overflow */
+	  overflow-y: auto; /* Enable vertical scrolling */
+	  position: absolute; /* Keep position absolute to maintain current layout */
+	  z-index: 30; /* Ensure it's above other elements */
+	  top: 63px; /* Keep current positioning */
+	  left: 5;
+	  color: black;
+	}
+	/* Make scrollbars more visually appealing */
+	.settings::-webkit-scrollbar {
+	  width: 8px;
+	}
+
+	.settings::-webkit-scrollbar-track {
+	  background: #f1f1f1;
+	  border-radius: 4px;
+	}
+
+	.settings::-webkit-scrollbar-thumb {
+	  background: #ccc;
+	  border-radius: 4px;
+	}
+
+	.settings::-webkit-scrollbar-thumb:hover {
+	  background: #aaa;
+	}
+
+	.settings h3 {
+	  margin: 0 0 10px 0;
+	  padding-bottom: 5px;
+	  border-bottom: 1px solid #ddd;
+	  font-size: 16px;
+	  color: #333;
+	}
+
+	.settings-section {
+	  margin-bottom: 15px;
+	  padding-bottom: 15px;
+	  border-bottom: 1px solid #eee;
+	}
+
+	.settings-row {
+	  display: flex;
+	  align-items: center;
+	  margin-bottom: 8px;
+	}
+
+	.settings-label {
+	  flex: 0 0 120px;
+	  font-size: 14px;
+	}
+
+	.settings-field {
+	  flex: 1;
+	  display: flex;
+	  align-items: center;
+	}
+
+	.settings input[type="text"],
+	.settings input[type="number"],
+	.settings select {
+	  padding: 6px 8px;
+	  border: 1px solid #ccc;
+	  border-radius: 4px;
+	  font-size: 14px;
+	}
+
+	.settings input[type="checkbox"] {
+	  margin-right: 5px;
+	}
+
+	.settings input[type="color"] {
+	  border: none;
+	  width: 30px;
+	  height: 30px;
+	  padding: 0;
+	  margin-left: 5px;
+	  cursor: pointer;
+	}
+
+	.settings button.search-btn {
+	  background: #f0f0f0;
+	  border: 1px solid #ccc;
+	  border-radius: 4px;
+	  margin-left: 5px;
+	  padding: 6px 10px;
+	  cursor: pointer;
+	}
+
+	.settings button.search-btn:hover {
+	  background: #e0e0e0;
+	}
+
+	.settings button.action-btn {
+	  background: #4a89dc;
+	  color: white;
+	  border: none;
+	  border-radius: 4px;
+	  padding: 8px 15px;
+	  font-size: 14px;
+	  cursor: pointer;
+	  margin-right: 10px;
+	}
+
+	.settings button.action-btn:hover {
+	  background: #3b7dd8;
+	}
+
+	.settings button.gallery-btn {
+	  background: rgba(255, 255, 255, 0.5);
+	  border: 1px solid #ddd;
+	  border-radius: 5px;
+	  width: 100%;
+	  padding: 8px;
+	  margin: 8px 0;
+	  font-size: 13px;
+	  cursor: pointer;
+	}
+
+	.tab-container {
+	  display: flex;
+	  margin-bottom: 15px;
+	  border-bottom: 1px solid #ddd;
+	}
+
+	.tab {
+	  padding: 8px 15px;
+	  margin-right: 5px;
+	  background: #eee;
+	  border: 1px solid #ddd;
+	  border-bottom: none;
+	  border-radius: 5px 5px 0 0;
+	  cursor: pointer;
+	}
+
+	.tab.active {
+	  background: #fff;
+	  border-bottom: 1px solid #fff;
+	  margin-bottom: -1px;
+	}
+
+	.tab-content {
+	  display: none;
+	}
+
+	.tab-content.active {
+	  display: block;
+	}
+
+	.footer-buttons {
+	  display: flex;
+	  justify-content: flex-end;
+	  margin-top: 0;
+	  padding-top: 0;
+	  border-top: 0;
+	}
 	</style>
 </head>
 <body>
@@ -1172,6 +1419,16 @@
 		<img src="./media/favicon-32x32.png" style="pointer-events: none;" id="dragImage" loading="lazy" />
 	</div>
 	<div id="messagePopup" class="popup-message"></div>
+	<div id='mediaSearchModal' class="hidden modal">
+		<div class="modal-content">
+			<span class="close-btn">&times;</span>
+			<h2>Search Tenor GIFs</h2>
+			<input type="text" id="searchQuery" placeholder="Search for GIFs..." style="width:80%">
+			<button id="searchButton">Search</button>
+			<div id="searchResults"></div>
+			<button class='close-btn'>Close</button>
+		</div>
+	</div>
 	<script>
 	
 	function allowDrop(ev) {
@@ -2537,7 +2794,7 @@
 			additional2+="&showdirector";
 		} 
 		
-		var iframesrc = "./index.html?ltb=1500&nocontrolbarspace&transparent&hideheader&hidetranslate&cleandirector&chatbutton=0&director="+roomname+additional+additional2+"&b64css="+injectCSS;
+		var iframesrc = "./index.html?ltb=1500&nocontrolbarspace&transparent&hideheader&showlabels&hidetranslate&cleandirector&chatbutton=0&director="+roomname+additional+additional2+"&b64css="+injectCSS;
 		
 		if (urlParams.has('ltb')){
 			iframesrc = iframesrc.replace("ltb=1500&","");
@@ -2692,7 +2949,7 @@
 		
 		
 		var button = document.createElement("button");
-		button.innerHTML = "Invite Settings"; 
+		button.innerHTML = "Invite Settings";
 		button.classList.add("menuButton");
 		button.state = false;
 		button.dataset.state = button.state;
@@ -2712,7 +2969,7 @@
 		
 		var a = document.createElement("a");
 		a.innerHTML = "Scene View Link 📎";
-		a.href = "./?scene=0&layout&remote&room="+roomname+additional;
+		a.href = "./?scene=0&layout&remote&showlabels&room="+roomname+additional;
 		a.target = "_blank";
 		a.onclick = function(evt){copyFunction(this, evt);};
 		document.getElementById("sources").appendChild(a);
@@ -2722,12 +2979,11 @@
 		button.innerHTML = "Publish to Twitch";
 		button.id = "publishTwitch";
 		button.onclick = function(){
-			
 			var URL = window.location.href.split("/");
 			URL.pop();
 			URL = URL.join("/");
 			URL+="/?scene=0&layout&remote&room="+roomname+additional;
-			URL+="&clean&chroma=000&ssar=landscape&nosettings&prefercurrenttab&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush=twitch&whippushtoken&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
+			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&prefercurrenttab&showlabels&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush=twitch&whippushtoken&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
 			var win = window.open( URL ,'targetWindow', 'toolbar=no,location=no,status=no,scaling=no,menubar=no,scrollbars=no,resizable=no,width=1280,height=720');
 			win.focus();
 			win.resizeTo(1280,720);
@@ -2742,7 +2998,7 @@
 			URL.pop();
 			URL = URL.join("/");
 			URL+="/?scene=0&layout&remote&room="+roomname+additional;
-			URL+="&clean&chroma=000&ssar=landscape&nosettings&prefercurrenttab&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
+			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&showlabels&prefercurrenttab&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
 			var win = window.open( URL ,'targetWindow', 'toolbar=no,location=no,status=no,scaling=no,menubar=no,scrollbars=no,resizable=no,width=1280,height=720');
 			win.focus();
 			win.resizeTo(1280,720);
@@ -2803,6 +3059,28 @@
 			} else if ("messageList" in e.data){
 				messageList = e.data.messageList;
 				updateMessages();
+			}
+			
+			if (e.data.type === 'frame') {
+			  if (e.data.frame) {
+				// Store by slot if available in the response
+				if (e.data.slot) {
+				  var slotId = parseInt(e.data.slot) - 1;
+				  layoutFrames[slotId] = e.data.frame;
+				  updateElementWithFrame(slotId, e.data.frame);
+				} 
+				// Also store by streamID mapping
+				else if (e.data.streamID) {
+				  for (var slotId in guestPositions) {
+					if (guestPositions[slotId] === e.data.streamID) {
+					  slotId = parseInt(slotId) - 1; // Convert to 0-based slot index
+					  layoutFrames[slotId] = e.data.frame;
+					  updateElementWithFrame(slotId, e.data.frame);
+					  break;
+					}
+				  }
+				}
+			  }
 			}
 			
 			if ("action" in e.data){
@@ -3231,6 +3509,7 @@
 		document.getElementById("iframeContainer").classList.add("tFadeIn");
 		document.getElementById("iframeContainer").classList.remove("tFadeout");
 		
+		startFrameRequests();
 		
 		document.getElementById("canvas").classList.remove("hidden");
 		
@@ -3272,6 +3551,8 @@
 		//document.getElementById("containerMenu2").classList.add("hidden");
 		document.getElementById("canvas").classList.add("hidden");
 		document.getElementById("canvas").innerHTML = "";
+		
+		stopFrameRequests();
 		
 		document.getElementById("iframeContainer").classList.remove("tFadeIn");
 		document.getElementById("iframeContainer").classList.add("tFadeout");
@@ -3440,7 +3721,6 @@
 		editButton.title = "Edit this layout";
 		editButton.dataset.state = "inactive";
 		editButton.onclick = function(){
-			
 			getById("saveAndClose").classList.remove("shake");
 			if (this.dataset.state == "active"){
 				setTimeout(function(){getById("saveAndClose").classList.add("shake");},10);
@@ -3817,6 +4097,7 @@
 			
 			containerSuper.style = "z-index:"+container.zIndex+";position: absolute;left:"+xoffset+"px;top:"+yoffset+"px;width:"+w+"px;height:"+h+"px;";
 			container.style = "background-color:"+color+";";
+			updateElementStyle(container);
 			
 			
 			var h3 = document.createElement("h3");
@@ -3849,7 +4130,6 @@
 			button.onclick = pushDown;
 			container.appendChild(button);
 			
-			
 			//part.onclick = function(){console.log(this.innerHTML);};
 			
 			var dimensions = updateSize(container);
@@ -3864,7 +4144,6 @@
 				updateSize(this);
 			}
 			
-
 			$(function(){
 				$(".draggable").draggable({ snap: true  , grid: [ 10,10 ] });
 			});
@@ -3881,6 +4160,9 @@
 		var indexs = [];
 		for (var i=0;i<eles.length;i++){
 			indexs.push(parseInt(eles[i].slot));
+			if ("slot" in eles[i] && layoutFrames[parseInt(eles[i].slot)]) {
+			  applyFrameToElement(eles[i], layoutFrames[parseInt(eles[i].slot)]);
+			}
 		}
 		
 		indexs.sort();
@@ -3970,7 +4252,64 @@
 		$(function(){
 			$(".resizable").resizable({ snap: true , grid: [ 10, 10] });
 		});
+		
+		requestFramesBySlot();
     }
+	
+	function updateElementStyle(container) {
+		
+		if (container.text) {
+			if (!container.textElement) {
+				container.textElement = document.createElement("div");
+				container.textElement.className = "textOverlay";
+				container.appendChild(container.textElement);
+			}
+			
+			container.textElement.innerText = container.text;
+			container.textElement.style.color = container.textColor || "#ffffff";
+			container.textElement.style.fontSize = container.fontSize || "24px";
+			container.textElement.style.fontFamily = container.fontFamily || "Arial, sans-serif";
+			container.textElement.style.textAlign = container.textAlign || "center";
+			container.textElement.style.position = "absolute";
+			container.textElement.style.width = "100%";
+			container.textElement.style.top = container.textPosition || "50%";
+			container.textElement.style.transform = "translateY(-50%)";
+			container.textElement.style.zIndex = "10";
+			
+			if (container.textBackground) {
+				container.textElement.style.backgroundColor = container.textBackground;
+				container.textElement.style.padding = "10px";
+			}
+		} else if (container.textElement) {
+			container.textElement.remove();
+			delete container.textElement;
+		}
+		
+		return; // I don't want to use this as its currented borked
+		
+		// Get styling properties
+		const margin = parseInt(container.margin) || 0;
+		const borderThickness = parseInt(container.borderThickness) || 0;
+		const borderColor = container.borderColor || "#0000";
+		const rounded = parseInt(container.rounded) || 0;
+
+		// Apply the additional style properties - using proper template literals
+		if (margin) {
+			container.style.margin = `${margin}px`;
+		}
+
+		if (borderThickness) {
+			container.style.border = `${borderThickness}px solid ${borderColor}`;
+		} else {
+			container.style.border = "none";
+		}
+
+		if (rounded) {
+			container.style.borderRadius = `${rounded}px`;
+		}
+
+		container.style.boxSizing = "border-box";
+	}
    
     function combinedLayout(layout){
 		var combined = {};
@@ -4059,302 +4398,520 @@
 	function deleteElement(event){
 		this.parentNode.remove();
 	}
-   
-	function settings(){
-		var parent = this.parentNode;
+	
+	function openMediaSearch(targetFieldId) {
+		var modal = document.getElementById('mediaSearchModal');
+		modal.classList.remove("hidden");
+		modal.dataset.targetField = targetFieldId;
 		
-		if (parent.setting){
-			parent.setting.classList.toggle("hidden");
-			return;
-		}
+		document.getElementById('searchResults').innerHTML = '';
+		document.getElementById('searchQuery').value = '';
 		
-		var setEle = document.createElement("div");
+		document.getElementById('searchButton').onclick = function() {
+			searchTenor();
+		};
 		
-		setEle.parent = parent;
-		parent.setting = setEle;
-		
-		parent.parent.appendChild(setEle);
-		
-		setEle.className = "settings";
-		setEle.innerHTML = "";
-		
-		setEle.style.left = 0;
-		setEle.style.top = "63px";
-		setEle.style.margin = "5px";
-		setEle.style.padding = "10px";
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "IFrame (URL)";
-		
-		label.title = "If no video stream is present, load the specified website here as an IFRAME instead";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.placeholder = "URL";
-		input.style.width = "200px";
-		setEle.appendChild(input);
-		input.value = parent.iframeSrc || "";
-		input.onchange = function(){
-			parent.iframeSrc = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Background Image (URL)";
-		label.title = "Set a background image for this space";
-		
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.placeholder = "URL";
-		input.style.width = "200px";
-		input.id = "backgroundImageURL";
-		setEle.appendChild(input);
-		input.value = parent.backgroundMedia || "";
-		input.onchange = function(){
-			parent.backgroundMedia = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("button");
-		label.innerText = "Select a background image from our gallery of hosted images!";
-		label.style = "font-size: 70%;color:black; background: rgb(255 255 255 / 33%);border-radius: 0 0 10px 10px;width: 400px;";
-   
-		setEle.appendChild(label);
-		label.onclick = function(){
-			this.remove();
-			fetch('./media/backgrounds/data.json')
-            .then(response => response.json())
-            .then(data => {
-                const carousel = document.getElementById('imageCarousel');
-				carousel.classList.remove("hidden");
-                data.forEach(item => {
-                    let img = document.createElement('img');
-                    img.src = "./media/backgrounds/"+item.thumbnail; // Assuming thumbnail URLs are relative paths in the JSON
-                    img.alt = 'Thumbnail';
-					img.dataset.url = "./media/backgrounds/"+item.original;
-                    carousel.appendChild(img);
-					img.onclick = function(){
-						getById("backgroundImageURL").value = this.dataset.url;
-						getById("backgroundImageURL").classList.remove("updated");
-						setTimeout(function(button){button.classList.add("updated");},10,getById("backgroundImageURL"));
-						const e = new Event("change");
-						getById("backgroundImageURL").dispatchEvent(e);
-					}
-                });
-            })
-            .catch(error => console.error('Error loading data:', error));
-		}
-		var label = document.createElement("div");
-		label.classList.add("hidden");
-		label.id = "imageCarousel";
-		setEle.appendChild(label);
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Overlay Image (URL)";
-		label.title = "Add an image overlay; it would make sense if its a transparent image";
-		
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.placeholder = "URL";
-		input.style.width = "200px";
-		input.id = "foregroundImageURL";
-		setEle.appendChild(input);
-		input.value = parent.foregroundMedia || "";
-		input.onchange = function(){
-			parent.foregroundMedia = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Default Stream ID";
-		label.title = "If the specified stream is connected, and both it and this element are unassigned, load that stream here.";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.style.width = "200px";
-		setEle.appendChild(input);
-		input.value = parent.defaultStreamID || "";
-		input.onchange = function(){
-			parent.defaultStreamID = this.value;
-		}
-		
-		<!-- var br = document.createElement("br"); -->
-		<!-- setEle.appendChild(br); -->
-		<!-- var label = document.createElement("label"); -->
-		<!-- label.innerHTML = "Hex Color"; -->
-		<!-- setEle.appendChild(label); -->
-		<!-- var input = document.createElement("input"); -->
-		<!-- input.style.width = "80px"; -->
-		<!-- setEle.appendChild(input); -->
-		<!-- input.value = parent.backgroundColor || "#000"; -->
-		<!-- input.onchange = function(){ -->
-			<!-- parent.backgroundColor = this.value; -->
-		<!-- } -->
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Border Thickness (px)";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.type = "number";
-		input.style.width = "80px";
-		setEle.appendChild(input);
-		input.value = parent.borderThickness || 0;
-		input.onchange = function(){
-			parent.borderThickness = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Margin (px)";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.type = "number";
-		input.style.width = "80px";
-		setEle.appendChild(input);
-		input.value = parent.margin || "0";
-		input.onchange = function(){
-			parent.margin = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Border/Background Color";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.type = "text";
-		input.id = "colorValue";
-		input.style.width = "80px";
-		setEle.appendChild(input);
-		input.value = parent.borderColor || "#0000";
-		
-		var colorinput = document.createElement("input");
-		colorinput.type="color";
-		colorinput.id="colorPicker";
-		
-		input.onchange = function(){
-			parent.borderColor = this.value;
-			getById("colorPicker").value = this.value;
-			getById("colorPicker").style.backgroundColor = this.value;
-		}
-		
-		colorinput.style = "display:inline-block;cursor:pointer;width:27px;height:27px;vertical-align:middle;padding:0;z-index:99;";
-		
-		colorinput.value = parent.borderColor || "#0000";
-		colorinput.style.backgroundColor = parent.borderColor || "#0000";
-		
-		setEle.appendChild(colorinput);
-		
-		colorinput.onchange = function(){
-			parent.borderColor = this.value;
-			getById("colorValue").value = this.value;
-			this.style.backgroundColor = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Rounded Edges (px)";
-		setEle.appendChild(label);
-		var input = document.createElement("input");
-		input.type = "number";
-		input.style.width = "80px";
-		setEle.appendChild(input);
-		input.value = parent.rounded || 0;
-		input.onchange = function(){
-			parent.rounded = this.value;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var label = document.createElement("label");
-		label.innerHTML = "Media fully cover area?" ;
-		label.title = "This applies to the background image and video element.";
-		setEle.appendChild(label);
-		var checkbox = document.createElement("input");
-		checkbox.type = "checkbox";
-		setEle.appendChild(checkbox);
-		if ("cover" in parent){
-			checkbox.checked = parent.cover || false;
-		} else {
-			checkbox.checked = true;
-		}
-		checkbox.onchange = function(){
-			parent.cover = this.checked;
-		}
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		
-		var label = document.createElement("label");
-		label.innerHTML = "Animated transitions";
-		setEle.appendChild(label);
-		
-		var input = document.createElement("input");
-		var checkbox = document.createElement("input");
-		checkbox.type = "checkbox";
-		checkbox.linked = input;
-		input.linked = checkbox;
-		setEle.appendChild(checkbox);
-		
-		if (parent.animated===true){
-			parent.animated = 300;
-		}
-		
-		if (parent.animated){
-			checkbox.checked = true;
-		} else {
-			input.disabled = true;
-		}
-		checkbox.onchange = function(){
-			if (this.checked){
-				this.linked.disabled = null;
-				delete this.linked.disabled;
-				parent.animated = this.linked.value || 300;
-			} else {
-				this.linked.disabled = true;
-				parent.animated = 0;
+		document.getElementById('searchQuery').onkeypress = function(e) {
+			if (e.key === 'Enter') {
+				searchTenor();
 			}
-		}
-		
-		var label = document.createElement("label");
-		label.innerHTML = "Speed (ms)";
-		label.style.marginLeft = "10px";
-		setEle.appendChild(label);
-		
-		input.type = "number";
-		input.style.width = "70px";
-		setEle.appendChild(input);
-		input.value = parent.animated || 0;
-		input.onchange = function(){
-			parent.animated = this.value;
-		}
-		
-		
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var br = document.createElement("br");
-		setEle.appendChild(br);
-		var button = document.createElement("button");
-		button.innerHTML = "OK";
-		setEle.appendChild(button);
-		button.onclick = function(){
-			setEle.classList.add("hidden");
-		}
-		setEle.classList.remove("hidden");
+		};
 	}
+	
+	function searchTenor() {
+		var query = document.getElementById('searchQuery').value.trim();
+		if (!query) return;
+		
+		var resultsContainer = document.getElementById('searchResults');
+		resultsContainer.innerHTML = '<div style="width:100%; text-align:center;">Loading...</div>';
+		
+		// Use Tenor API v2
+		var apiKey = "AIzaSyDuGQRHdrPZpueBXh_X6wkgLAUOlHZZMr8"; // steves key restricted to this website
+		var limit = 15;
+		
+		fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${apiKey}&limit=${limit}`)
+			.then(response => response.json())
+			.then(data => {
+				resultsContainer.innerHTML = '';
+				
+				if (!data.results || data.results.length === 0) {
+					resultsContainer.innerHTML = '<div style="max-width:100%; max-height: 600px; text-align:center;">No results found</div>';
+					return;
+				}
+				
+				data.results.forEach(item => {
+					var imgContainer = document.createElement('div');
+					imgContainer.style = "flex-basis: 20%; padding: 5px; box-sizing: border-box; max-width:100%;max-height:100%;";
+					
+					var img = document.createElement('img');
+					img.src = item.media_formats.tinygif.url;
+					img.alt = item.content_description;
+					img.style = "width: 100%; cursor: pointer; border-radius: 5px; max-height: 400px; object-fit: contain;";
+					img.dataset.url = item.media_formats.gif.url;
+					
+					img.onclick = function() {
+						var targetFieldId = document.getElementById('mediaSearchModal').dataset.targetField;
+						var targetField = document.getElementById(targetFieldId);
+						targetField.value = this.dataset.url;
+						
+						// Trigger the change event to update the parent property
+						const e = new Event("change");
+						targetField.dispatchEvent(e);
+						
+						// Highlight the updated field
+						targetField.classList.remove("updated");
+						setTimeout(function() {
+							targetField.classList.add("updated");
+						}, 10);
+						
+						// Close the modal
+						document.getElementById('mediaSearchModal').classList.add("hidden");
+					};
+					
+					imgContainer.appendChild(img);
+					resultsContainer.appendChild(imgContainer);
+				});
+			})
+			.catch(error => {
+				console.error('Error searching Tenor:', error);
+				resultsContainer.innerHTML = '<div style="width:100%; text-align:center;">Error searching. Please try again.</div>';
+			});
+	}
+   
+function settings() {
+  var parent = this.parentNode;
+  
+  if (parent.setting) {
+    parent.setting.classList.toggle("hidden");
+    return;
+  }
+  
+  var setEle = document.createElement("div");
+  setEle.parent = parent;
+  parent.setting = setEle;
+  parent.parent.appendChild(setEle);
+  setEle.className = "settings";
+  
+  // Build settings UI
+  setEle.innerHTML = `
+    <div class="tab-container">
+      <div class="tab active" data-tab="basic">Basic</div>
+      <div class="tab" data-tab="appearance">Appearance</div>
+      <div class="tab" data-tab="text">Text</div>
+    </div>
+    
+    <div class="tab-content active" data-tab="basic">
+      <div class="settings-section">
+        <h3>Source Options</h3>
+        <div class="settings-row">
+          <div class="settings-label" title="If no video stream is present, load the specified website here as an IFRAME instead">IFrame URL</div>
+          <div class="settings-field">
+            <input id="iframeSrc" placeholder="URL" style="width: 100%;">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label" title="Set a background image for this space">Background Image</div>
+          <div class="settings-field">
+            <input id="backgroundImageURL" placeholder="URL" style="width: 100%;">
+            <button class="search-btn" title="Search for GIFs">🔍</button>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <button class="gallery-btn">Select a background image from our gallery</button>
+        </div>
+        
+        <div class="hidden" id="imageCarousel"></div>
+        
+        <div class="settings-row">
+          <div class="settings-label" title="Add an image overlay; it would make sense if its a transparent image">Overlay Image</div>
+          <div class="settings-field">
+            <input id="foregroundImageURL" placeholder="URL" style="width: 100%;">
+            <button class="search-btn" title="Search for GIFs">🔍</button>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label" title="If the specified stream is connected, and both it and this element are unassigned, load that stream here.">Default Stream ID</div>
+          <div class="settings-field">
+            <input id="defaultStreamID" style="width: 100%;">
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-content" data-tab="appearance">
+      <div class="settings-section">
+        <h3>Border & Spacing</h3>
+        <div class="settings-row">
+          <div class="settings-label">Border Thickness</div>
+          <div class="settings-field">
+            <input id="borderThickness" type="number" min="0" style="width: 70px;">
+            <span style="margin-left: 5px;">px</span>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Border Color</div>
+          <div class="settings-field">
+            <input id="colorValue" type="text" style="width: 80px;">
+            <input id="colorPicker" type="color">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Margin</div>
+          <div class="settings-field">
+            <input id="margin" type="number" min="0" style="width: 70px;">
+            <span style="margin-left: 5px;">px</span>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Rounded Edges</div>
+          <div class="settings-field">
+            <input id="rounded" type="number" min="0" style="width: 70px;">
+            <span style="margin-left: 5px;">px</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Media Options</h3>
+        <div class="settings-row">
+          <div class="settings-label" title="This applies to the background image and video element.">Media fully cover area</div>
+          <div class="settings-field">
+            <input id="coverMedia" type="checkbox">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Animated transitions</div>
+          <div class="settings-field">
+            <input id="animatedCheck" type="checkbox">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Animation Speed</div>
+          <div class="settings-field">
+            <input id="animationSpeed" type="number" min="0" style="width: 70px;">
+            <span style="margin-left: 5px;">ms</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-content" data-tab="text">
+      <div class="settings-section">
+        <h3>Text Settings</h3>
+        <div class="settings-row">
+          <div class="settings-label">Text Overlay</div>
+          <div class="settings-field">
+            <input id="textOverlay" placeholder="Text to display" style="width: 100%;">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Text Color</div>
+          <div class="settings-field">
+            <input id="textColorValue" type="text" style="width: 80px;">
+            <input id="textColorPicker" type="color">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Font Size</div>
+          <div class="settings-field">
+            <input id="fontSize" type="text" style="width: 80px;">
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Font Family</div>
+          <div class="settings-field">
+            <select id="fontFamily" style="width: 100%;">
+              <option value="Arial">Arial</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Helvetica">Helvetica</option>
+              <option value="Tahoma">Tahoma</option>
+              <option value="Trebuchet MS">Trebuchet MS</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Sora">Sora</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Text Position</div>
+          <div class="settings-field">
+            <select id="textPosition" style="width: 100%;">
+              <option value="10%">Top</option>
+              <option value="50%">Middle</option>
+              <option value="95%">Bottom</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <div class="settings-label">Text Background</div>
+          <div class="settings-field">
+            <input id="textBgValue" type="text" style="width: 80px;">
+            <input id="textBgPicker" type="color">
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer-buttons">
+      <button class="action-btn">Save</button>
+    </div>
+  `;
+  
+  // Initialize tabs
+  var tabs = setEle.querySelectorAll('.tab');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      // Remove active class from all tabs
+      tabs.forEach(function(t) {
+        t.classList.remove('active');
+      });
+      
+      // Hide all tab content
+      setEle.querySelectorAll('.tab-content').forEach(function(content) {
+        content.classList.remove('active');
+      });
+      
+      // Add active class to clicked tab
+      this.classList.add('active');
+      
+      // Show corresponding tab content
+      var tabName = this.getAttribute('data-tab');
+      setEle.querySelector(`.tab-content[data-tab="${tabName}"]`).classList.add('active');
+    });
+  });
+  
+  // Set current values
+  setEle.querySelector('#iframeSrc').value = parent.iframeSrc || '';
+  setEle.querySelector('#backgroundImageURL').value = parent.backgroundMedia || '';
+  setEle.querySelector('#foregroundImageURL').value = parent.foregroundMedia || '';
+  setEle.querySelector('#defaultStreamID').value = parent.defaultStreamID || '';
+  setEle.querySelector('#borderThickness').value = parent.borderThickness || 0;
+  setEle.querySelector('#margin').value = parent.margin || 0;
+  setEle.querySelector('#colorValue').value = parent.borderColor || '#0000';
+  setEle.querySelector('#colorPicker').value = parent.borderColor || '#0000';
+  setEle.querySelector('#rounded').value = parent.rounded || 0;
+  
+  var coverCheck = setEle.querySelector('#coverMedia');
+  if ("cover" in parent) {
+    coverCheck.checked = parent.cover || false;
+  } else {
+    coverCheck.checked = true;
+  }
+  
+  var animatedCheck = setEle.querySelector('#animatedCheck');
+  var animationSpeed = setEle.querySelector('#animationSpeed');
+  
+  if (parent.animated === true) {
+    parent.animated = 300;
+  }
+  
+  if (parent.animated) {
+    animatedCheck.checked = true;
+    animationSpeed.value = parent.animated;
+    animationSpeed.disabled = false;
+  } else {
+    animatedCheck.checked = false;
+    animationSpeed.value = 300;
+    animationSpeed.disabled = true;
+  }
+  
+  setEle.querySelector('#textOverlay').value = parent.text || '';
+  setEle.querySelector('#textColorValue').value = parent.textColor || '#ffffff';
+  setEle.querySelector('#textColorPicker').value = parent.textColor || '#ffffff';
+  setEle.querySelector('#fontSize').value = parent.fontSize || '24px';
+  
+  var fontFamilySelect = setEle.querySelector('#fontFamily');
+  fontFamilySelect.value = parent.fontFamily || 'Arial';
+  
+  var textPositionSelect = setEle.querySelector('#textPosition');
+  textPositionSelect.value = parent.textPosition || '50%';
+  
+  setEle.querySelector('#textBgValue').value = parent.textBackground || '';
+  setEle.querySelector('#textBgPicker').value = parent.textBackground || '#000000';
+  
+  // Event handlers
+  setEle.querySelector('#iframeSrc').onchange = function() {
+    parent.iframeSrc = this.value;
+  };
+  
+  setEle.querySelector('#backgroundImageURL').onchange = function() {
+    parent.backgroundMedia = this.value;
+  };
+  
+  setEle.querySelector('#foregroundImageURL').onchange = function() {
+    parent.foregroundMedia = this.value;
+  };
+  
+  setEle.querySelector('#defaultStreamID').onchange = function() {
+    parent.defaultStreamID = this.value;
+  };
+  
+  setEle.querySelector('#borderThickness').onchange = function() {
+    parent.borderThickness = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#margin').onchange = function() {
+    parent.margin = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#colorValue').onchange = function() {
+    parent.borderColor = this.value;
+    setEle.querySelector('#colorPicker').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#colorPicker').onchange = function() {
+    parent.borderColor = this.value;
+    setEle.querySelector('#colorValue').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#rounded').onchange = function() {
+    parent.rounded = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#coverMedia').onchange = function() {
+    parent.cover = this.checked;
+  };
+  
+  animatedCheck.onchange = function() {
+    if (this.checked) {
+      animationSpeed.disabled = false;
+      parent.animated = animationSpeed.value || 300;
+    } else {
+      animationSpeed.disabled = true;
+      parent.animated = 0;
+    }
+  };
+  
+  animationSpeed.onchange = function() {
+    if (animatedCheck.checked) {
+      parent.animated = this.value;
+    }
+  };
+  
+  setEle.querySelector('#textOverlay').onchange = function() {
+    parent.text = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#textColorValue').onchange = function() {
+    parent.textColor = this.value;
+    setEle.querySelector('#textColorPicker').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#textColorPicker').onchange = function() {
+    parent.textColor = this.value;
+    setEle.querySelector('#textColorValue').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#fontSize').onchange = function() {
+    parent.fontSize = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#fontFamily').onchange = function() {
+    parent.fontFamily = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#textPosition').onchange = function() {
+    parent.textPosition = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#textBgValue').onchange = function() {
+    parent.textBackground = this.value;
+    setEle.querySelector('#textBgPicker').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  setEle.querySelector('#textBgPicker').onchange = function() {
+    parent.textBackground = this.value;
+    setEle.querySelector('#textBgValue').value = this.value;
+    updateElementStyle(parent);
+  };
+  
+  // Gallery button
+  setEle.querySelector('.gallery-btn').onclick = function() {
+    this.style.display = 'none';
+    var carousel = setEle.querySelector('#imageCarousel');
+    carousel.classList.remove("hidden");
+    fetch('./media/backgrounds/data.json')
+      .then(response => response.json())
+      .then(data => {
+        data.forEach(item => {
+          let img = document.createElement('img');
+          img.src = "./media/backgrounds/"+item.thumbnail;
+          img.alt = 'Thumbnail';
+          img.dataset.url = "./media/backgrounds/"+item.original;
+          img.style.maxWidth = '80px';
+          img.style.margin = '5px';
+          img.style.cursor = 'pointer';
+          carousel.appendChild(img);
+          img.onclick = function(){
+            setEle.querySelector('#backgroundImageURL').value = this.dataset.url;
+            setEle.querySelector('#backgroundImageURL').classList.remove("updated");
+            setTimeout(function(button){
+              button.classList.add("updated");
+            }, 10, setEle.querySelector('#backgroundImageURL'));
+            const e = new Event("change");
+            setEle.querySelector('#backgroundImageURL').dispatchEvent(e);
+          }
+        });
+      })
+      .catch(error => console.error('Error loading data:', error));
+  };
+  
+  // GIF search buttons
+  var searchButtons = setEle.querySelectorAll('.search-btn');
+  searchButtons[0].onclick = function() {
+    openMediaSearch("backgroundImageURL");
+  };
+  searchButtons[1].onclick = function() {
+    openMediaSearch("foregroundImageURL");
+  };
+  
+  // Save button
+  setEle.querySelector('.action-btn').onclick = function() {
+    setEle.classList.add("hidden");
+    updateElementStyle(parent);
+  };
+  
+  setEle.classList.remove("hidden");
+  
+  setTimeout(function() {
+	  const rect = setEle.getBoundingClientRect();
+	  const viewportHeight = window.innerHeight;
+	 // const viewportWidth = window.innerWidth;
+	  
+	  // Check if the panel extends beyond the bottom of the viewport
+	  if (rect.bottom > viewportHeight) {
+		const newTop = Math.max(10, viewportHeight - rect.height - 620); // Keep at least 10px from top
+		setEle.style.top = newTop + 'px';
+	  }
+	  
+	}, 0);
+}
 	
 	function copyJSON(){
 		var layout = [];
@@ -4529,6 +5086,13 @@
 				ele.margin = parseInt(eles[i].margin) || 0;
 				ele.rounded = parseInt(eles[i].rounded) || 0;
 				ele.muted = eles[i].muted || false;
+				
+				ele.text = eles[i].text || "";
+				ele.textColor = eles[i].textColor || "#ffffff";
+				ele.fontSize = eles[i].fontSize || "24px";
+				ele.fontFamily = eles[i].fontFamily || "Arial";
+				ele.textPosition = eles[i].textPosition || "50%";
+				ele.textBackground = eles[i].textBackground || "";
 			} catch(e){errorlog(e);}
 			
 			scene.push(ele);
@@ -4661,6 +5225,58 @@
 			document.documentElement.style.setProperty('--aspect-ratio-widget', ar);
 		}
 	}
+	
+	var layoutFrames = {}; // Store frames by slot ID (not index)
+	var frameRequestTimer = null;
+
+	function requestFramesBySlot() {
+	  if (!iframe || !iframe.contentWindow) return;
+	  
+	  var eles = document.querySelectorAll(".widget");
+	  for (var i = 0; i < eles.length; i++) {
+		if ("slot" in eles[i] && eles[i].slot !== undefined) {
+		  // Request frame for each slot's actual ID (not index)
+		  iframe.contentWindow.postMessage({ 
+			getSnapshotBySlot: parseInt(eles[i].slot) + 1, // Add 1 to match the slot ID system
+			cib: Date.now()
+		  }, "*");
+		}
+	  }
+	}
+
+	function startFrameRequests() {
+	  if (frameRequestTimer) clearInterval(frameRequestTimer);
+	  setTimeout(requestFramesBySlot, 200);
+	  frameRequestTimer = setInterval(requestFramesBySlot, 1200);
+	}
+
+	function stopFrameRequests() {
+	  if (frameRequestTimer) {
+		clearInterval(frameRequestTimer);
+		frameRequestTimer = null;
+	  }
+	}
+	
+	function updateElementWithFrame(slotId, frameData) {
+	  var eles = document.querySelectorAll(".widget");
+	  for (var i = 0; i < eles.length; i++) {
+		if ("slot" in eles[i] && parseInt(eles[i].slot) === parseInt(slotId)) {
+		  applyFrameToElement(eles[i], frameData);
+		}
+	  }
+	}
+
+	function applyFrameToElement(element, frameData) {
+	  //var opacity = (element.frameOpacity || 30) / 100;
+	  element.style.backgroundImage = `url(${frameData})`;
+	  element.style.backgroundSize = element.cover ? 'cover' : 'contain';
+	  element.style.backgroundPosition = 'center';
+	  element.style.backgroundRepeat = 'no-repeat';
+	  element.style.backgroundBlendMode = 'luminosity';
+	  
+	  updateElementStyle(element);
+	}
+	
 	
 	function changeAbsolutePosition(value, button){
 		document.querySelectorAll(".absolutePosition").forEach(ele=>{

@@ -13,14 +13,58 @@
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTQgNGgyNHYyNEg0eiIvPjxwYXRoIGZpbGw9IiMwMDAiIGQ9Ik02IDZoMjB2MjBINnoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNOCA4aDE2djRsLTQgOHY0SDEydi00TDggMTJ6Ii8+PC9zdmc+">
     <title>Whiteboard - Live Streaming Collaboration Tool</title>
     <style>
+        :root {
+            --canvas-bg: #ffffff;
+            --main-bg: #1a1a1a;
+            --container-bg: #2a2a2a;
+            --button-bg: #404040;
+            --button-hover: #505050;
+            --button-active: #606060;
+            --text-color: #ffffff;
+            --input-bg: #1a1a1a;
+            --border-color: #404040;
+            --accent-color: #898989;
+            --default-brush: #00FF00;
+        }
+
+        [data-theme="dark"] {
+            --canvas-bg: #000000;
+            --main-bg: #0a0a0a;
+            --container-bg: #1a1a1a;
+            --button-bg: #2a2a2a;
+            --button-hover: #3a3a3a;
+            --button-active: #4a4a4a;
+            --text-color: #e0e0e0;
+            --input-bg: #0a0a0a;
+            --border-color: #2a2a2a;
+            --accent-color: #606060;
+            --default-brush: #00FF00;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --canvas-bg: #000000;
+                --main-bg: #0a0a0a;
+                --container-bg: #1a1a1a;
+                --button-bg: #2a2a2a;
+                --button-hover: #3a3a3a;
+                --button-active: #4a4a4a;
+                --text-color: #e0e0e0;
+                --input-bg: #0a0a0a;
+                --border-color: #2a2a2a;
+                --accent-color: #606060;
+                --default-brush: #ffffff;
+            }
+        }
+
         html, body {
             height: 100%;
             margin: 0;
             overflow: hidden;
         }
         body {
-            background: #1a1a1a;
-            color: #fff;
+            background: var(--main-bg);
+            color: var(--text-color);
             padding: 10px;
             font-family: system-ui;
             display: flex;
@@ -29,7 +73,7 @@
         }
         .whiteboard-container {
             flex: 1;
-            background: #2a2a2a;
+            background: var(--container-bg);
             padding: 10px;
             border-radius: 8px;
             display: flex;
@@ -41,7 +85,7 @@
             cursor: crosshair;
             width: auto;
             height: auto;
-            background: white;
+            background: var(--canvas-bg);
             border-radius: 4px;
             max-width: min(100%, calc((100vh - 140px) * 16/9));
             max-height: calc(100vh - 140px);
@@ -58,8 +102,8 @@
             padding-top: 40px;
         }
         button {
-            background: #404040;
-            color: white;
+            background: var(--button-bg);
+            color: var(--text-color);
             border: none;
             padding: 8px 16px;
             border-radius: 4px;
@@ -70,23 +114,23 @@
 			min-width: 80px;
 		}
 		.controls button.active {
-			background: #606060;
-			outline: 2px solid #898989;
+			background: var(--button-active);
+			outline: 2px solid var(--accent-color);
 			outline-offset: -2px;
 		}
-        button:hover { background: #505050; }
-        input[type="range"] { accent-color: #898989; }
+        button:hover { background: var(--button-hover); }
+        input[type="range"] { accent-color: var(--accent-color); }
 		
         .text-input {
             position: absolute; /* Changed from fixed to absolute */
-            background: white;
-            border: 1px solid #000;
+            background: var(--canvas-bg);
+            border: 1px solid var(--default-brush);
             outline: none;
             font-family: Arial;
             padding: 2px;
             margin: 0;
             display: none;
-            color: black;
+            color: var(--default-brush);
             min-width: 100px;
             z-index: 1000;
             resize: none;
@@ -107,12 +151,12 @@
             overflow-y: auto;
         }
         .modal {
-            background: #2a2a2a;
+            background: var(--container-bg);
             padding: 20px;
             border-radius: 8px;
             width: 90%;
             max-width: 500px;
-            color: white;
+            color: var(--text-color);
             margin: 20px auto;
         }
 		
@@ -122,7 +166,7 @@
 		}
 
 		.modal-buttons button.active {
-			outline: 2px solid #898989;
+			outline: 2px solid var(--accent-color);
 			box-shadow: 0 0 10px rgba(137, 137, 137, 0.3);
 		}
 
@@ -137,7 +181,7 @@
 		.mode-description {
 			text-align: center;
 			margin: 15px 0;
-			color: #898989;
+			color: var(--accent-color);
 		}
         
         .modal-content {
@@ -152,10 +196,10 @@
             width: calc(100% - 20px);
             padding: 8px;
             margin: 8px 0;
-            border: 1px solid #404040;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--input-bg);
+            color: var(--text-color);
         }
         
         .modal-buttons {
@@ -177,7 +221,7 @@
             top: 10px;
             left: 10px;
             right: 10px;
-            background: #2a2a2a;
+            background: var(--container-bg);
             padding: 8px;
             border-radius: 4px;
             display: none;
@@ -186,9 +230,9 @@
             z-index: 100;
         }
         .view-link-container input {
-            background: #1a1a1a;
-            color: white;
-            border: 1px solid #404040;
+            background: var(--input-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
             padding: 8px;
             border-radius: 4px;
             flex: 1;
@@ -234,8 +278,8 @@
             }
         }
 		.font-size-select {
-			background: #404040;
-			color: white;
+			background: var(--button-bg);
+			color: var(--text-color);
 			border: none;
 			padding: 8px;
 			border-radius: 4px;
@@ -247,13 +291,50 @@
 			display: block;
 		}
 		
+		#themeToggle {
+			font-size: 18px;
+			padding: 6px 12px;
+		}
+		
+		#screenShareToggle {
+			font-size: 18px;
+			padding: 6px 12px;
+			position: relative;
+		}
+		
+		#screenShareToggle.active {
+			background: var(--button-active);
+			outline: 2px solid var(--accent-color);
+			outline-offset: -2px;
+		}
+		
+		.canvas-container {
+			position: relative;
+			margin: auto;
+			display: inline-block;
+		}
+		
+		#backgroundCanvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			background: var(--canvas-bg);
+			border-radius: 4px;
+			pointer-events: none;
+		}
+		
+		#canvas {
+			position: relative;
+			background: transparent;
+		}
+		
     </style>
 </head>
 <body>
 
 	<div class="whiteboard-container">
         <div class="controls">
-            <input type="color" id="colorPicker" value="#000000">
+            <input type="color" id="colorPicker" value="#00FF00">
             <input type="range" id="brushSize" min="1" max="50" value="5">
             <button id="brush" class="active">Brush</button>
             <button id="text" title="Click away to commit text">Text</button>
@@ -271,8 +352,13 @@
             <button id="eraser">Eraser</button>
             <button id="fill">Fill</button>
             <button id="clear">Clear</button>
+            <button id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode">🌙</button>
+            <button id="screenShareToggle" onclick="toggleScreenShare()" title="Use screen share as background">🖥️</button>
         </div>
-        <canvas id="canvas"></canvas>
+        <div class="canvas-container">
+            <canvas id="backgroundCanvas"></canvas>
+            <canvas id="canvas"></canvas>
+        </div>
     </div>
 	
     <input type="text" class="text-input" id="textInput">
@@ -338,6 +424,8 @@
 <script>
 	const canvas = document.getElementById('canvas');
 	const ctx = canvas.getContext('2d', { willReadFrequently: true });
+	const backgroundCanvas = document.getElementById('backgroundCanvas');
+	const bgCtx = backgroundCanvas.getContext('2d');
 	const colorPicker = document.getElementById('colorPicker');
 	const brushSize = document.getElementById('brushSize');
 	const eraser = document.getElementById('eraser');
@@ -346,6 +434,184 @@
 	
 	let savedCanvasState = null;
 	let textPosition = { x: 0, y: 0 };
+	let screenShareStream = null;
+	let screenShareVideo = null;
+	let animationFrameId = null;
+	
+	// Theme management
+	function initTheme() {
+		const savedTheme = localStorage.getItem('theme');
+		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		
+		if (savedTheme) {
+			document.documentElement.setAttribute('data-theme', savedTheme);
+		} else {
+			// Always set an explicit theme based on system preference
+			document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+		}
+		
+		updateThemeButton();
+		updateCanvasBackground();
+		updateDefaultBrushColor();
+	}
+	
+	function toggleTheme() {
+		const currentTheme = document.documentElement.getAttribute('data-theme');
+		const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+		
+		document.documentElement.setAttribute('data-theme', newTheme);
+		localStorage.setItem('theme', newTheme);
+		
+		updateThemeButton();
+		updateCanvasBackground();
+		updateDefaultBrushColor();
+	}
+	
+	function updateThemeButton() {
+		const themeToggle = document.getElementById('themeToggle');
+		const theme = document.documentElement.getAttribute('data-theme');
+		const isDark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+		themeToggle.textContent = isDark ? '☀️' : '🌙';
+	}
+	
+	function updateCanvasBackground() {
+		// Don't update if screen share is active
+		if (screenShareStream) return;
+		
+		const theme = document.documentElement.getAttribute('data-theme');
+		const isDark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+		const canvasColor = isDark ? '#000000' : '#ffffff';
+		
+		// Fill background canvas with new color
+		bgCtx.fillStyle = canvasColor;
+		bgCtx.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+		
+		// If user hasn't interacted, also clear the main canvas
+		if (!hasInteracted) {
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+		}
+	}
+	
+	function updateDefaultBrushColor() {
+		// Set default color to green if not already set
+		if (!lastColor || lastColor === '') {
+			const defaultColor = '#00ff00';
+			colorPicker.value = defaultColor;
+			lastColor = defaultColor;
+			if (currentMode !== 'eraser') {
+				ctx.strokeStyle = defaultColor;
+			}
+		}
+	}
+	
+	// Initialize theme on load
+	window.addEventListener('DOMContentLoaded', () => {
+		initTheme();
+		resizeCanvas();
+		// Set initial stroke color
+		ctx.strokeStyle = lastColor;
+	});
+	
+	// Screen share functionality
+	async function toggleScreenShare() {
+		const screenShareToggle = document.getElementById('screenShareToggle');
+		
+		if (screenShareStream) {
+			// Stop screen share
+			stopScreenShare();
+		} else {
+			// Start screen share
+			try {
+				screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+					video: true,
+					audio: false
+				});
+				
+				screenShareToggle.classList.add('active');
+				
+				// Create video element to capture screen share
+				screenShareVideo = document.createElement('video');
+				screenShareVideo.srcObject = screenShareStream;
+				screenShareVideo.play();
+				
+				// Handle stream ending
+				screenShareStream.getVideoTracks()[0].addEventListener('ended', () => {
+					stopScreenShare();
+				});
+				
+				// Start drawing screen share to background canvas
+				drawScreenShare();
+				
+			} catch (err) {
+				console.error('Error starting screen share:', err);
+				if (err.name === 'NotAllowedError') {
+					// User cancelled the screen share dialog
+				}
+			}
+		}
+	}
+	
+	function stopScreenShare() {
+		const screenShareToggle = document.getElementById('screenShareToggle');
+		screenShareToggle.classList.remove('active');
+		
+		if (screenShareStream) {
+			screenShareStream.getTracks().forEach(track => track.stop());
+			screenShareStream = null;
+		}
+		
+		if (screenShareVideo) {
+			screenShareVideo.pause();
+			screenShareVideo = null;
+		}
+		
+		if (animationFrameId) {
+			cancelAnimationFrame(animationFrameId);
+			animationFrameId = null;
+		}
+		
+		// Restore solid color background
+		updateCanvasBackground();
+	}
+	
+	function drawScreenShare() {
+		if (!screenShareVideo || !screenShareStream) return;
+		
+		// Wait for video to be ready
+		if (screenShareVideo.videoWidth === 0 || screenShareVideo.videoHeight === 0) {
+			animationFrameId = requestAnimationFrame(drawScreenShare);
+			return;
+		}
+		
+		// Calculate how to fit the video
+		const videoAspect = screenShareVideo.videoWidth / screenShareVideo.videoHeight;
+		const canvasAspect = backgroundCanvas.width / backgroundCanvas.height;
+		
+		let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+		
+		// Use contain fit (show entire screen share, may have letterboxing)
+		if (videoAspect > canvasAspect) {
+			// Video is wider than canvas
+			drawWidth = backgroundCanvas.width;
+			drawHeight = backgroundCanvas.width / videoAspect;
+			offsetY = (backgroundCanvas.height - drawHeight) / 2;
+		} else {
+			// Video is taller than canvas
+			drawHeight = backgroundCanvas.height;
+			drawWidth = backgroundCanvas.height * videoAspect;
+			offsetX = (backgroundCanvas.width - drawWidth) / 2;
+		}
+		
+		// Clear and fill background
+		bgCtx.fillStyle = '#000000';
+		bgCtx.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+		
+		// Draw video
+		bgCtx.drawImage(screenShareVideo, offsetX, offsetY, drawWidth, drawHeight);
+		
+		// Continue drawing
+		animationFrameId = requestAnimationFrame(drawScreenShare);
+	}
 		
 	function createAndAppendIframe(config) {
         if (config.mode === 'playground') return null;
@@ -563,9 +829,9 @@
 	let useMediaTrackProcessor = true;
 
 	function resizeCanvas() {
-		const container = canvas.parentElement;
+		const container = document.querySelector('.whiteboard-container');
 		const maxWidth = container.clientWidth - 20;
-		const maxHeight = container.clientHeight - 60;
+		const maxHeight = container.clientHeight - 100;
 		const aspectRatio = 16/9;
 		
 		let width = maxWidth;
@@ -575,22 +841,42 @@
 			height = maxHeight;
 			width = height * aspectRatio;
 		}
-		if (useMediaTrackProcessor){
-			canvas.width = Math.min(1920, Math.max(1280, width));
-			canvas.height = canvas.width * 9/16;
-		} else {
-			canvas.width = 1280;
-			canvas.height = canvas.width * 9/16;
+		
+		// Set dimensions for both canvases
+		const finalWidth = useMediaTrackProcessor ? Math.min(1920, Math.max(1280, width)) : 1280;
+		const finalHeight = finalWidth * 9/16;
+		
+		// Size the container
+		const canvasContainer = document.querySelector('.canvas-container');
+		canvasContainer.style.width = finalWidth + 'px';
+		canvasContainer.style.height = finalHeight + 'px';
+		
+		// Size both canvases
+		canvas.width = finalWidth;
+		canvas.height = finalHeight;
+		backgroundCanvas.width = finalWidth;
+		backgroundCanvas.height = finalHeight;
+		
+		// Update composite canvas size if it exists
+		if (compositeCanvas) {
+			compositeCanvas.width = finalWidth;
+			compositeCanvas.height = finalHeight;
 		}
-		ctx.fillStyle = '#ffffff';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		
+		// Clear main canvas (it should be transparent)
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		
+		// Update background
+		updateCanvasBackground();
 	}
 
 	//window.addEventListener('resize', resizeCanvas);
-	resizeCanvas();
+	// Don't call resizeCanvas here - wait for theme to be initialized
+	//resizeCanvas();
 
 	let isDrawing = false;
-	let lastColor = '#000000';
+	let lastColor = '#00ff00';
+	let hasInteracted = false; // Track if user has drawn on canvas
 	
 	let currentMode = 'brush';
 	const brush = document.getElementById('brush');
@@ -604,7 +890,12 @@
 		currentMode = mode;
 		Object.values(modes).forEach(btn => btn.classList.remove('active'));
 		modes[mode].classList.add('active');
-		ctx.strokeStyle = mode === 'eraser' ? '#ffffff' : lastColor;
+		if (mode === 'eraser') {
+			ctx.globalCompositeOperation = 'destination-out';
+		} else {
+			ctx.globalCompositeOperation = 'source-over';
+			ctx.strokeStyle = lastColor;
+		}
 		canvas.style.cursor = mode === 'text' ? 'text' : 'crosshair';
 		fontSize.classList.toggle('active', mode === 'text');
 		
@@ -617,6 +908,7 @@
 	function commitText() {
 		if (textInput.value && savedCanvasState) {
 			// The final text is already drawn on the canvas
+			hasInteracted = true; // Mark canvas as interacted
 			savedCanvasState = null;
 		}
 		textInput.value = '';
@@ -678,6 +970,7 @@
 		}
 
 		isDrawing = true;
+		hasInteracted = true; // Mark canvas as interacted
 		ctx.beginPath();
 		ctx.moveTo(x, y);
 	});
@@ -701,6 +994,7 @@
 
 
 	function floodFill(startX, startY, fillColor) {
+		hasInteracted = true; // Mark canvas as interacted
 		const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 		const pixels = imageData.data;
 		
@@ -760,7 +1054,9 @@
 		}
 	});
 	clear.addEventListener('click', () => {
-		resizeCanvas();
+		hasInteracted = false; // Reset interaction state when clearing
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		updateDefaultBrushColor();
 	});
 	
 	function oscillatorTimeout(callback, delay) {
@@ -819,8 +1115,36 @@
 		};
 	}
 
+	// Create a composite canvas for streaming
+	let compositeCanvas = null;
+	let compositeCtx = null;
+	
+	function getCompositeCanvas() {
+		if (!compositeCanvas) {
+			compositeCanvas = document.createElement('canvas');
+			compositeCanvas.width = canvas.width;
+			compositeCanvas.height = canvas.height;
+			compositeCtx = compositeCanvas.getContext('2d');
+		}
+		return { compositeCanvas, compositeCtx };
+	}
+	
+	function drawComposite() {
+		const { compositeCtx } = getCompositeCanvas();
+		
+		// Clear composite canvas
+		compositeCtx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+		
+		// Draw background canvas
+		compositeCtx.drawImage(backgroundCanvas, 0, 0);
+		
+		// Draw main canvas on top
+		compositeCtx.drawImage(canvas, 0, 0);
+	}
+	
 	async function createCanvasStream() {
-		const stream = canvas.captureStream(60);
+		const { compositeCanvas } = getCompositeCanvas();
+		const stream = compositeCanvas.captureStream(60);
 		const tracks = stream.getVideoTracks();
 		
 		const indicator = new Path2D();
@@ -834,29 +1158,27 @@
 		const PULSE_AMOUNT = 0.05;
 		
 		function drawIndicator() {
-			const state = ctx.getImageData(0, 0, canvas.width, canvas.height);
+			// Draw the composite
+			drawComposite();
 			
-			ctx.save();
-			ctx.translate(canvas.width - 15, canvas.height - 15);
-			ctx.rotate(rotation);
+			// Add indicator to composite
+			const { compositeCtx } = getCompositeCanvas();
+			compositeCtx.save();
+			compositeCtx.translate(compositeCanvas.width - 15, compositeCanvas.height - 15);
+			compositeCtx.rotate(rotation);
 			
 			const opacity = OPACITY_BASE + Math.sin(rotation) * PULSE_AMOUNT;
-			ctx.strokeStyle = `rgba(200, 200, 200, ${opacity})`;
-			ctx.lineWidth = 1;
-			ctx.stroke(indicator);
+			compositeCtx.strokeStyle = `rgba(200, 200, 200, ${opacity})`;
+			compositeCtx.lineWidth = 1;
+			compositeCtx.stroke(indicator);
 			
-			ctx.restore();
-			
-			// Restore the previous state before the next frame
-			ctx.putImageData(state, 0, 0);
+			compositeCtx.restore();
 			
 			rotation += ROTATION_SPEED;
 			oscillatorTimeout(drawIndicator, 50);
-			//requestAnimationFrame(drawIndicator);
 		}
 		
 		oscillatorTimeout(drawIndicator, 50);
-		//requestAnimationFrame(drawIndicator);
 		tracks.forEach(track => track.contentHint = 'detail');
 		return { stream, tracks };
 	}
@@ -908,7 +1230,9 @@
 		// If processor method not used or failed, fallback to toDataURL
 		if (!useMediaTrackProcessor) {
 			frameGenerator = setInterval(() => {
-				const imageData = canvas.toDataURL('image/webp');
+				drawComposite();
+				const { compositeCanvas } = getCompositeCanvas();
+				const imageData = compositeCanvas.toDataURL('image/webp');
 				iframe.contentWindow.postMessage({
 					type: 'canvas-frame',
 					frame: imageData

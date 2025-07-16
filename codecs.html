@@ -1761,9 +1761,21 @@ function createCodecItem(codec, info) {
 		  });
 		}
     }
+	
+	let detectionStarted = false;
+	
+	setTimeout(function() {
+	  if (!detectionStarted) {
+		dom.get('start-detection').click();
+		addLog('Auto-starting detection...');
+	  }
+	}, 5000);
     
     // Start detection when button is clicked
-    dom.get('start-detection').addEventListener('click', detectCodecs);
+    dom.get('start-detection').addEventListener('click', function() {
+	  detectionStarted = true;
+	  detectCodecs();
+	});
   </script>
 </body>
 </html>
