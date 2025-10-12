@@ -42,19 +42,41 @@ async function main() {
 	}
 	
 	if (ln_template === null) {
-		getById("mainmenu").style.opacity = 1;
+		// Only show menu if not in auth mode
+		if (!urlParams.has("auth") && !urlParams.has("requireauth")) {
+			getById("mainmenu").style.opacity = 1;
+		}
 	} else if (ln_template !== false) {
 		// checking if manual lanuage override enabled
 		try {
 			log("Lang Template: " + ln_template);
 			await changeLg(ln_template);
-			//getById("mainmenu").style.opacity = 1;
+			// Only show menu if not in auth mode
+			if (!urlParams.has("auth") && !urlParams.has("requireauth")) {
+				//getById("mainmenu").style.opacity = 1;
+			}
 		} catch (error) {
 			errorlog(error);
+			// Only show menu if not in auth mode
+			if (!urlParams.has("auth") && !urlParams.has("requireauth")) {
+				getById("mainmenu").style.opacity = 1;
+			}
+		}
+	}
+	
+	// Initialize authentication if enabled
+	if (window.vdoAuth) {
+		getById("mainmenu").classList.add("hidden2");
+		getById("header").classList.add("hidden2");
+		
+		await window.vdoAuth.init();
+		// Menu visibility is now handled by auth completion
+		if (session.authMode && (session.authToken || session.authSkipped)) {
 			getById("mainmenu").style.opacity = 1;
 		}
 	}
-	if (location.hostname !== "vdo.ninja" && location.hostname !== "backup.vdo.ninja" && location.hostname !== "proxy.vdo.ninja" && location.hostname !== "obs.ninja") {
+	
+	if (location.hostname !== "vdo.ninja" && location.hostname !== "backup.vdo.ninja" && location.hostname !== "proxy.vdo.ninja" && location.hostname !== "alt.vdo.ninja" && location.hostname !== "obs.ninja") {
 		errorReport = false;
 
 		if (location.hostname === "rtc.ninja") {
@@ -86,8 +108,15 @@ async function main() {
 		}
 		try {
 			if (ln_template === false) {
-				changeLg("blank");
+				if (location.hostname === "china.vdo.ninja"){
+					changeLg("cn");
+				} else {
+					changeLg("blank");
+				}
 			}
+			if (location.hostname === "china.vdo.ninja"){
+				session.wss = "wss://china.rtc.ninja:8443";
+			} 
 			//getById("mainmenu").style.opacity = 1;
 
 			getById("qos").innerHTML = '<i class="las la-plug"></i>';
@@ -106,6 +135,10 @@ async function main() {
 	} else {
 		// check if automatic language translation is available
 		getById("mainmenu").style.opacity = 1;
+		
+		if (location.hostname === "alt.vdo.ninja"){
+			session.wss = "wss://china.rtc.ninja:8443";
+		} 
 	}
 
 	//// translation stuff ends ////
@@ -165,6 +198,7 @@ async function main() {
 	} catch (e) {
 		errorlog(e);
 	}
+
 
 	if (urlParams.has("director") || urlParams.has("dir")) {
 		session.director = urlParams.get("director") || urlParams.get("dir") || session.roomid || urlParams.get("roomid") || urlParams.get("r") || urlParams.get("room") || filename || true;
@@ -543,6 +577,33 @@ async function main() {
 			session.whipOutput = "https://cloudflare.vdo.ninja/" + session.whipOutput;
 		}
 	}
+	
+	if (urlParams.has("endpage")) {
+		session.redirectHangup = urlParams.get("endpage") || false;
+		session.redirectHangupTimer = 3000;
+		
+		if (session.redirectHangup) {
+			try {
+				session.redirectHangup = decodeURIComponent(session.redirectHangup);
+				getById("hangupContainer").innerHTML = "Hang-up complete.  Redirecting shortly...";
+			} catch (e) {}
+		}
+		
+		if (urlParams.has("endpagetimer")) {
+			session.redirectHangupTimer = urlParams.get("endpagetimer") || 0;
+			session.redirectHangupTimer = parseInt(session.redirectHangupTimer) || 0;
+		}
+	}
+	
+	if (urlParams.has("autoend")) {
+		session.autoEnd = urlParams.get("autoend");
+		if (session.autoEnd) {
+			session.autoEnd = parseInt(session.autoEnd) || 600000; // default 10 minutes if value provided
+		} else {
+			session.autoEnd = 600000; // default 10 minutes if no value
+		}
+	}
+	
 
 	if (urlParams.has("whepwait") || urlParams.has("whepicewait")) {
 		// I'm going to use this for all whip/whep for the time being.
@@ -748,7 +809,7 @@ async function main() {
 		session.audioMeterGuest = false;
 	} else {
 		log("MAKE DRAGGABLE");
-		delayedStartupFuncs.push([makeDraggableElement, document.getElementById("subControlButtons")]);
+		delayedStartupFuncs.push([makeDraggableElement, getById("subControlButtons")]);
 		if (SafariVersion && !ChromiumVersion) {
 			// if desktop Safari, so macOS, give a note saying it sucks
 			getById("SafariWarning").classList.remove("hidden");
@@ -1454,6 +1515,7 @@ async function main() {
 			session.accept_layouts = true;
 			session.layout = {};
 		} else {
+			
 			let decodedParam;
 			try {
 				decodedParam = decodeURIComponent(urlParams.get("layout"));
@@ -1474,8 +1536,19 @@ async function main() {
 					session.layout = decodedParam;
 				}
 			}
+			
+			if (typeof session.layout === 'object' && session.layout !== null && Object.keys(session.layout).length > 0) {
+				session.updateOnSlotChange = true;
+			}
 		}
 		console.warn("Warning: If using &layout with &broadcast, only the director's video will appear in the custom layout, which is likely not intended.");
+	}
+	
+	if (urlParams.get("updateonslotschange") || urlParams.get("uosc")) {
+		let uosc = urlParams.get("updateonslotschange") || urlParams.get("uosc");
+		if (["false","0","off"].includes(uosc)){
+			session.updateOnSlotChange = false;
+		}
 	}
 
 	if (urlParams.get("exclusivelayoutaudio")) {
@@ -1687,6 +1760,9 @@ async function main() {
 					warnUser("It is recommended to use Chrome instead of Safari if doing local media recordings.");
 				} else if (SafariVersion <= 15) {
 					warnUser("Please update your device.\n\nOlder versions of Safari may crash after recording for a few minutes.");
+				} else if (iOS || iPad) {
+					// iOS-specific warning about split recordings
+					warnUser("iOS Recording Notice:\n\n• Recordings will be split into 5-minute segments to prevent crashes\n• Files will download as MP4 format\n• Each segment will download separately\n• Use video editing software to join segments if needed\n\nGoogle Drive uploads (if enabled) will work normally.");
 				} else {
 					warnUser("Local media recordings are an experimental feature on Apple devices.\n\nPlease at least test it out a few times first.");
 				}
@@ -1766,16 +1842,34 @@ async function main() {
 		session.recordingInterval = parseInt(session.recordingInterval) || 1;
 		// For Mac: https://gist.github.com/steveseguin/8083172a20ad7c9ebcb449e22fc8fe67
 		// For Windows: https://gist.github.com/steveseguin/7ca1df1df9ec6042f27ecc8d258e3f30
+	} else if ((iOS || iPad) && (urlParams.has("record") || urlParams.has("autorecord"))) {
+		// Auto-enable split recording for iOS devices to prevent memory issues
+		// This works with the blob fallback to ensure recordings don't crash
+		session.recordingInterval = 5; // 5 minutes default for iOS
+		if (!session.cleanOutput) {
+			console.log("iOS detected with recording enabled: Auto-enabling 5-minute split recording to prevent memory issues");
+		}
 	}
 	if (urlParams.has("pcm")) {
 		session.pcm = true;
 	}
+	
 	if (urlParams.has("recordcodec") || urlParams.has("rc")) {
 		session.recordingVideoCodec = urlParams.get("recordcodec") || urlParams.get("rc") || false;
+	} else if (session.recordingVideoCodec===false){
+		session.recordingVideoCodec = "vp8";
 	}
+	
 	if (urlParams.has("recordfolder")) {
 		session.GDRIVE_FOLDERNAME = urlParams.get("recordfolder") || "";
 	}
+	
+	if (urlParams.has("menuoffset")) {
+		getById("subControlButtons").style.bottom = urlParams.get("menuoffset") || "50px";
+		getById("controlPositioning").style.bottom = urlParams.get("menuoffset") || "50px";
+		getById("subControlButtons").style.setProperty("position", "absolute", "important");
+	}
+	
 
 	if (urlParams.has("bigbutton")) {
 		session.bigmutebutton = true;
@@ -3202,9 +3296,9 @@ async function main() {
 		getById("guestTips").style.display = "flex";
 	}
 
-	if (urlParams.has("audiogain") || urlParams.has("gain") || urlParams.has("g")) {
+	if (urlParams.has("audiogain") || urlParams.has("gain") || urlParams.has("g") || urlParams.has("muteguest")) {
 		log("audio gain  ENABLED");
-		session.audioGain = urlParams.get("audiogain") || urlParams.get("gain") || urlParams.get("g");
+		session.audioGain = urlParams.get("audiogain") || urlParams.get("gain") || urlParams.get("g") || 0;
 		session.audioGain = parseInt(session.audioGain) || 0;
 		session.disableWebAudio = false;
 	}
@@ -5546,6 +5640,16 @@ async function main() {
 			}
 		}
 	}
+	
+	
+	if (window.vdoAuth){
+		if (session.streamID) {
+		  await window.vdoAuth.assignStream();
+		}
+		getById("mainmenu").classList.remove("hidden2");
+		getById("header").classList.remove("hidden2");
+	}
+	
 	if (session.roomid || urlParams.has("roomid") || urlParams.has("r") || urlParams.has("room") || filename || session.permaid !== false) {
 		var roomid = "";
 		if (urlParams.has("room")) {

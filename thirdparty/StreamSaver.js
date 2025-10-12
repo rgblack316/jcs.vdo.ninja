@@ -17,7 +17,17 @@ function streamSaverFunction(){
   //console.log(ponyfill);
   //console.log(isSecureContext);
   
-  let useBlobFallback = false; // we do not want to use blob recording because it can crash the browser.
+  // Enable blob fallback for iOS/Safari to fix file download issues
+  // Note: This is re-enabled specifically for iOS despite memory concerns
+  // We'll use split recording to mitigate memory issues
+  let useBlobFallback = /constructor/i.test(global.HTMLElement) || !!global.safari || !!global.WebKitPoint;
+  
+  // iOS detection for additional handling
+  const iOS = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
+  if (iOS) {
+    useBlobFallback = true; // Force blob fallback for iOS
+    console.log("iOS detected: Enabling blob fallback for recording downloads");
+  }
   
   //console.log(useBlobFallback);
   

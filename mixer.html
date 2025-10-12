@@ -2983,7 +2983,7 @@
 			URL.pop();
 			URL = URL.join("/");
 			URL+="/?scene=0&layout&remote&room="+roomname+additional;
-			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&prefercurrenttab&showlabels&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush=twitch&whippushtoken&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
+			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&prefercurrenttab&showlabels&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush=twitch&quality=1&whippushtoken&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
 			var win = window.open( URL ,'targetWindow', 'toolbar=no,location=no,status=no,scaling=no,menubar=no,scrollbars=no,resizable=no,width=1280,height=720');
 			win.focus();
 			win.resizeTo(1280,720);
@@ -2998,7 +2998,7 @@
 			URL.pop();
 			URL = URL.join("/");
 			URL+="/?scene=0&layout&remote&room="+roomname+additional;
-			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&showlabels&prefercurrenttab&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
+			URL+="&cleanviewer&chroma=000&ssar=landscape&nosettings&showlabels&prefercurrenttab&selfbrowsersurface=include&displaysurface=browser&np&nopush&publish&whippush&quality=1&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
 			var win = window.open( URL ,'targetWindow', 'toolbar=no,location=no,status=no,scaling=no,menubar=no,scrollbars=no,resizable=no,width=1280,height=720');
 			win.focus();
 			win.resizeTo(1280,720);
@@ -4515,6 +4515,7 @@ function settings() {
           <div class="settings-field">
             <input id="backgroundImageURL" placeholder="URL" style="width: 100%;">
             <button class="search-btn" title="Search for GIFs">🔍</button>
+            <button class="upload-btn" id="uploadBackgroundBtn" title="Upload an image" style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 5px;">Upload</button>
           </div>
         </div>
         
@@ -4529,6 +4530,7 @@ function settings() {
           <div class="settings-field">
             <input id="foregroundImageURL" placeholder="URL" style="width: 100%;">
             <button class="search-btn" title="Search for GIFs">🔍</button>
+            <button class="upload-btn" id="uploadForegroundBtn" title="Upload an image" style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 5px;">Upload</button>
           </div>
         </div>
         
@@ -4755,6 +4757,47 @@ function settings() {
   setEle.querySelector('#foregroundImageURL').onchange = function() {
     parent.foregroundMedia = this.value;
   };
+  
+  // Add upload button handlers
+  const uploadBackgroundBtn = setEle.querySelector('#uploadBackgroundBtn');
+  if (uploadBackgroundBtn) {
+    uploadBackgroundBtn.onclick = function() {
+      const popup = window.open('https://fileuploads.vdo.ninja/popup/upload', 'uploadBackground', 'width=640,height=640');
+      
+      window.addEventListener('message', function handleMessage(event) {
+        if (event.origin !== 'https://fileuploads.vdo.ninja') return;
+        
+        if (event.data && event.data.type === 'media-uploaded') {
+          const backgroundInput = setEle.querySelector('#backgroundImageURL');
+          if (backgroundInput) {
+            backgroundInput.value = event.data.url;
+            backgroundInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          window.removeEventListener('message', handleMessage);
+        }
+      });
+    };
+  }
+  
+  const uploadForegroundBtn = setEle.querySelector('#uploadForegroundBtn');
+  if (uploadForegroundBtn) {
+    uploadForegroundBtn.onclick = function() {
+      const popup = window.open('https://fileuploads.vdo.ninja/popup/upload', 'uploadForeground', 'width=640,height=640');
+      
+      window.addEventListener('message', function handleMessage(event) {
+        if (event.origin !== 'https://fileuploads.vdo.ninja') return;
+        
+        if (event.data && event.data.type === 'media-uploaded') {
+          const foregroundInput = setEle.querySelector('#foregroundImageURL');
+          if (foregroundInput) {
+            foregroundInput.value = event.data.url;
+            foregroundInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          window.removeEventListener('message', handleMessage);
+        }
+      });
+    };
+  }
   
   setEle.querySelector('#defaultStreamID').onchange = function() {
     parent.defaultStreamID = this.value;
@@ -5333,6 +5376,7 @@ function settings() {
 	} else {
 		document.getElementById("welcomeWindow").style.display = "block";
 	}
+
 </script>
 </body>
 </html>

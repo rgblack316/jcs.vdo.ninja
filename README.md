@@ -113,6 +113,8 @@ https://vdo.ninja may unavoidably use cookies that are exempt from EU laws of re
 
 Additional security features are being added weekly on request. Please ask about these options if added security and privacy are requirements for you.
 
+Please see: [Terms of Service](https://docs.vdo.ninja/help/privacy-and-security-details/vdo.ninja-terms-of-service) | [Privacy Policy](https://docs.vdo.ninja/help/privacy-and-security-details).
+
 ## Feedback
 Ideas, feedback, bugs, etc -- all welcomed.  I'm dumping many of my ideas as issues into Github. Feedback is typically most welcomed via Email or Discord.
 

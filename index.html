@@ -42,7 +42,7 @@
 		
 		<meta name="msapplication-TileColor" content="#da532c" />
 		<meta name="theme-color" content="#0f131d" />
-		<link rel="stylesheet" href="./main.css?ver=406" />
+		<link rel="stylesheet" href="./main.css?ver=4019" />
 		<script type="text/javascript" crossorigin="anonymous" src="./thirdparty/adapter.js"></script>
 		
 		<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
@@ -70,6 +70,9 @@
 		<meta property="og:site_name" content="VDO.Ninja">
 
 		<style id="lightbox-animations" type="text/css"></style>
+		
+		<!-- Authentication styles -->
+		<link rel="stylesheet" href="auth-styles.css">
 
 	</head>
 	<body id="main" class="main hidden" onload="main()">
@@ -82,7 +85,7 @@
 		</span>
 		<script type="text/javascript" crossorigin="anonymous"  src="./thirdparty/CodecsHandler.js?ver=28"></script>
 		<script type="text/javascript" crossorigin="anonymous" src="./thirdparty/aes.js"></script>
-		<script type="text/javascript" crossorigin="anonymous" src="./webrtc.js?ver=858"></script>
+		<script type="text/javascript" crossorigin="anonymous" src="./webrtc.js?ver=865"></script>
 		<input id="zoomSlider" type="range" style="display: none;" />
 		<span id="electronDragZone" style="display:none;pointer-events: none; z-index:-10; position:absolute;top:0;left:0;width:100%;height:2%;min-height:20px;"></span>
 		<div id="header">
@@ -380,6 +383,36 @@
 											<option value="av1">AV1</option>
 										</select >
 									</b>
+								</th>
+							</tr>
+							<tr>
+								<th style="text-align:right; padding: 5px; vertical-align: top;">
+									<input id="useSSOForRoom" type="checkbox" onchange="toggleSSOOptions(this.checked)" title="Use SSO to manage access for this room. You will be asked to sign in.">
+								</th>
+								<th style="text-align:left;">
+									<b>
+										<span title="Use SSO to manage access for this room. As director, you will sign in first; guest access can be Public, Require SSO, or Allowlist.">Use SSO for this room</span>
+									</b>
+									<div id="ssoOptions" class="sso-options-panel" style="display:none;">
+										<div style="margin-bottom:6px; font-weight:600;">Guest access:</div>
+										<label style="display:block; margin:4px 0;">
+											<input type="radio" name="ssoAccessMode" value="public" checked onclick="document.getElementById('preAllowlistRow').style.display='none'">
+											<span>Public (no sign-in required for guests)</span>
+										</label>
+										<label style="display:block; margin:4px 0;">
+											<input type="radio" name="ssoAccessMode" value="authenticated" onclick="document.getElementById('preAllowlistRow').style.display='none'">
+											<span>Require SSO (guests must sign in)</span>
+										</label>
+										<label style="display:block; margin:4px 0;">
+											<input type="radio" name="ssoAccessMode" value="allowlist" onclick="document.getElementById('preAllowlistRow').style.display='block'">
+											<span>Allowlist only (specific users or emails)</span>
+										</label>
+										<div id="preAllowlistRow" style="display:none; margin-top:8px;">
+											<label for="preAllowlistCSV" style="display:block; margin-bottom:4px;">Allowed list (comma-separated; use @handle or email:*@domain.com)</label>
+											<input id="preAllowlistCSV" type="text" class="sso-options-input" placeholder="@alice, email:*@company.com">
+										</div>
+										<div class="sso-options-note">You can change these later in Room Settings.</div>
+									</div>
 								</th>
 							</tr>
 							</table>
@@ -1093,6 +1126,9 @@
 							</i>
 							<br />
 							<li>
+								Users report that robotic sounding audio in OBS can be addressed by updating to OBS v31.1 or newer
+							</li>
+							<li>
 								If the video fails to load in OBS Studio, where the browser source remains blank, try disabling hardware-acceleration or 
 								<a href='https://docs.vdo.ninja/common-errors-and-known-issues/obs.ninja-doesnt-show-up-in-obs-or-is-choppy' title="Click to link out to the VDO.Ninja help guide for common OBS Studio problems" target="_blank">refer to this help guide</a> for more.
 							</li>
@@ -1101,7 +1137,7 @@
 								<span style="color:#daad09;">Welcome to VDO Ninja! We've rebranded!  Nothing else is changing and we're staying 100% free.</span>
 							</h4>
 							<br />
-							<span title="Made in Canada">🍁</span> Minor update on March 1st. You can also still access the previous version, which <a href="https://vdo.ninja/v26/">is hosted here</a>. Development <a target="_blank" title="Open a page with recent VDO.Ninja development and feature updates" href="https://updates.vdo.ninja/">updates are here.</a>
+							<span title="Made in Canada">🎒</span> Site last updated on August 26th. You can also still access the previous version, which <a href="https://vdo.ninja/v27.4/">is hosted here</a>. Development <a target="_blank" title="Open a page with recent VDO.Ninja development and feature updates" href="https://updates.vdo.ninja/">updates are here.</a>
 							<br />
 							<br />
 							<h3>
@@ -1156,9 +1192,7 @@
 						For advanced URL options and parameters, <a href="https://docs.vdo.ninja/advanced-settings">see the Wiki.</a>
 					</span>
 				</div>
-			</div>
-			
-			<div class='directorContainer half' id='directorLinks1' style='display:none;margin-top:0;'>
+			</div><div class='directorContainer half' id='directorLinks1' style='display:none;margin-top:0;'>
 				<div class='directorBlock'>
 					<h2 title="Invite a guest or camera source to publish into the group room" style="margin-top: 5px;"><i class="las la-video director-link-icons" ></i><span data-translate="invite-a-guest">INVITE A GUEST</span></h2>
 					<span style="margin:5px; line-height: 1.6;" data-translate='invite-users-to-join'>Guests can use the link to join the group room</span>
@@ -1175,9 +1209,7 @@
 						<button class='pull-right' id="showCustomizerButton1"  onclick='showCustomizer(1,this)'><i class='las la-tools'></i><span data-translate="customize">Customize</span></button>
 					<span>
 				</div>
-			</div>
-			
-			<div class='directorContainer half' id='directorLinks2' style='display:none;margin-top:0;'>
+			</div><div class='directorContainer half' id='directorLinks2' style='display:none;margin-top:0;'>
 				<div class='directorBlock' style="background-color: var(--green-accent);" >
 					<h2 title="Use this link in the OBS Browser Source to capture the video or audio" style="margin-left: 1px;margin-top: 5px;"><i class="las la-th-large director-link-icons" style="margin-right: 6px;" ></i> <span data-translate="capture-a-group-scene">CAPTURE A GROUP SCENE</span></h2>
 					<span style="margin:5px; line-height: 1.6;" data-translate='this-is-obs-browser-source-link'>Use in OBS or other studio software to capture the group video mix</span>
@@ -1194,9 +1226,7 @@
 						<button class='pull-right' style='font-size:1.15em' id="showCustomizerButton3"  onclick='showCustomizer(3,this)'><i class='las la-tools'></i><span data-translate="customize">Customize</span></button>
 					<span>
 				</div>
-			</div>
-			
-			<div class='directorContainer' id="customizeLinks" style='display:none;margin-top:0;padding-top:15px'>
+			</div><div class='directorContainer' id="customizeLinks" style='display:none;margin-top:0;padding-top:15px'>
 				<div class='directorBlock' id="customizeLinks1" style='display:none;margin-top:0;padding-bottom:0;'>
 					<div style="display:inline-block;margin-top: 12px;   position: relative;  margin-right:10px;">
 						<label class="switch" title="Disables Echo Cancellation and improves audio quality">
@@ -1406,9 +1436,7 @@
 						</label>
 						<span data-translate="obfuscate-link">Obfuscate with Invite.cam</span>
 					</div>
-				</div>
-			
-				<div class='directorBlock' id="customizeLinks3" style='display:none;margin-top:5px;padding-bottom:0;'>
+				</div><div class='directorBlock' id="customizeLinks3" style='display:none;margin-top:5px;padding-bottom:0;'>
 					<div  style="display:inline-block; position: relative; margin-right:10px; ">
 						<div style="display:inline-block;margin-top: 12px; position: relative; margin-right:10px; ">
 						
@@ -2510,7 +2538,7 @@
 				</span>
 				
 				<span style="margin: 20px 0 0 0;display:block" id='globalTimerDirectorSpan'>
-					<button data-action-type="create-timer-global" id="globalTimerDirectorToggle" title="Set a countdown timer that this guest sees. CTRL (cmd) + click to pause." onclick="directRoomTimer(this, event);">
+					<button data-action-type="create-timer-global" id="globalTimerDirectorToggle" title="Set a countdown timer that this guest sees. CTRL (cmd) + click to pause, or hold ALT to have show in scenes also." onclick="directRoomTimer(this, event);">
 						<i class="las la-clock"></i>
 						<span data-translate="create-global-timer">Create Global Count-down Timer</span>
 					</button>
@@ -2569,6 +2597,43 @@
 						<span data-translate="remote-global-record">Remote record - stop all</span>
 					</button>
 				</span>
+				
+				<!-- Auth Access Control Section -->
+				<div id="authAccessControl" style="margin: 20px 0 0 0; display:none; border-top: 1px solid #ccc; padding-top: 20px;">
+					<h4 style="margin-bottom: 10px;">Room Access Control</h4>
+					
+					<div style="margin-bottom: 15px;">
+						<label>Access Mode:</label>
+						<div style="margin-top: 5px;">
+							<label style="display: block; margin-bottom: 5px;">
+								<input type="radio" name="roomAccessMode" value="public" onchange="updateRoomAccessMode(this.value)" style="margin-right: 5px;">
+								Public (anyone can join)
+							</label>
+							<label style="display: block; margin-bottom: 5px;">
+								<input type="radio" name="roomAccessMode" value="authenticated" onchange="updateRoomAccessMode(this.value)" style="margin-right: 5px;">
+								Authenticated (must sign in)
+							</label>
+							<label style="display: block; margin-bottom: 5px;">
+								<input type="radio" name="roomAccessMode" value="allowlist" onchange="updateRoomAccessMode(this.value)" style="margin-right: 5px;">
+								Allowlist (specific users only)
+							</label>
+						</div>
+					</div>
+					
+					<div id="allowlistSection" style="display:none; margin-top: 15px;">
+						<label>Allowed Users:</label>
+						<div style="margin-top: 5px;">
+							<input type="text" id="allowlistInput" placeholder="Enter username or email pattern (e.g., @johndoe, email:*@company.com)" style="width: calc(100% - 70px); padding: 5px;">
+							<button onclick="addToAllowlist()" style="width: 60px; margin-left: 5px;">Add</button>
+						</div>
+						<div id="allowlistDisplay" style="margin-top: 10px; max-height: 150px; overflow-y: auto;"></div>
+					</div>
+					
+					<div id="accessRequestsSection" style="display:none; margin-top: 15px;">
+						<label>Pending Access Requests:</label>
+						<div id="accessRequestsList" style="margin-top: 5px; max-height: 200px; overflow-y: auto;"></div>
+					</div>
+				</div>
 				
 				
 			</div>
@@ -2903,7 +2968,7 @@
 			// if (!window.location.search){document.body.innerHTML = "";} // uncomment this line, if you wish to try it.
 			
 			var session = WebRTC.Media; // session is a required global variable if configuring manually. Run before loading main.js but after webrtc.js.
-			session.version = "27.8"; // updated: default 1080p now + tweaked outbound bandwidth logic
+			session.version = "28.0"; // updated: default 1080p now + tweaked outbound bandwidth logic
 			session.streamID = session.generateStreamID(); // randomly generates a streamID for this session. You can set your own programmatically if needed
 			
 			session.defaultPassword = "someEncryptionKey123"; // Change this password if self-deploying for added security/privacy
@@ -3028,7 +3093,31 @@
 			// if ("42" != prompt("enter the password")){document.body.innerHTML = "";window.location.href = "";} // if you want a low-effort password for the site
 			
 		</script>
-		<script type="text/javascript" crossorigin="anonymous" id="lib-js" src="./lib.js?ver=1324"></script>
-		<script type="text/javascript" crossorigin="anonymous" id="main-js" src="./main.js?ver=981"></script>
+		
+		<!-- Authentication client -->
+		<script type="text/javascript" crossorigin="anonymous" src="./auth-client.js?v=2"></script>
+
+		<script type="text/javascript">
+			function toggleSSOOptions(enabled){
+				var box = document.getElementById('ssoOptions');
+				if (!box) return;
+				box.style.display = enabled ? 'block' : 'none';
+				var listRow = document.getElementById('preAllowlistRow');
+				if (!enabled) { if (listRow) listRow.style.display='none'; return; }
+				// Ensure allowlist row reflects current selection
+				try {
+					var selected = document.querySelector('input[name="ssoAccessMode"]:checked');
+					if (selected && selected.value === 'allowlist') {
+						if (listRow) listRow.style.display='block';
+					} else {
+						if (listRow) listRow.style.display='none';
+					}
+				} catch(e){}
+			}
+		</script>
+
+		<script type="text/javascript" crossorigin="anonymous" id="lib-js" src="./lib.js?ver=1351"></script>
+		<script type="text/javascript" crossorigin="anonymous" id="main-js" src="./main.js?ver=995"></script>
+		
 	</body>
 </html>
