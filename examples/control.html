@@ -1,5 +1,6 @@
 <html>
 <head>
+	<title>Legacy Layout Console - VDO.Ninja</title>
 	<style>
 		body {
 			margin:0;
@@ -79,15 +80,22 @@
 	}
 	
 	var url = document.URL.substr(0,document.URL.lastIndexOf('/'));
+	var mixerURL = url + "/mixer?room=" + encodeURIComponent(roomID);
+	var bodyElement = document.getElementById("body");
+	var linkWrapper = document.createElement("div");
+	var mixerLink = document.createElement("a");
+	mixerLink.href = mixerURL;
+	mixerLink.textContent = mixerURL;
+	linkWrapper.appendChild(mixerLink);
 	
 
-	navigator.clipboard.writeText(url+"/mixer?room="+roomID).then(() => {
+	navigator.clipboard.writeText(mixerURL).then(() => {
       /* clipboard successfully set */
     }, () => {
       /* clipboard write failed */
     });
 	
-	document.getElementById("body").innerHTML+=url+"/mixer?room="+roomID;
+	bodyElement.appendChild(linkWrapper);
 	
 
 	var socket = new WebSocket("wss://api.action.wtf:666"); // api.action.wtf has been deprecated. 

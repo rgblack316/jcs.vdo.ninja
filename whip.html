@@ -718,22 +718,26 @@
 							<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
 								<div>
 									<ul style="margin: 0; padding-left: 20px; color: white;">
-										<li>Rate Control: <strong>CRF</strong></li>
-										<li>CRF: <strong>23</strong></li>
+										<li>Rate Control: <strong>CBR</strong></li>
+										<li>Bitrate: <strong>2500</strong> to <strong>8000</strong></li>
 										<li>Keyframe Interval: <strong>1s</strong></li>
-										<li>Preset: <strong>Veryfast</strong></li>
+										<li>Preset: <strong>Veryfast</strong> or <strong>Ultrafast</strong></li>
 									</ul>
 								</div>
 								<div>
 									<ul style="margin: 0; padding-left: 20px; color: white;">
-										<li>Profile: <strong>High</strong></li>
-										<li>Tune: <strong>Fastdecode</strong> (required)</li>
-										<li>x264 Options: <strong>bframes=0</strong> (required)</li>
+										<li>Encoder: <strong>x264</strong></li>
+										<li>Profile: <strong>High</strong> or <strong>Baseline</strong></li>
+										<li>Tune: <strong>Fastdecode</strong> or <strong>Zerolatency</strong></li>
+										<li>x264 Options: <strong>bframes=0</strong> (required!)</li>
 									</ul>
 								</div>
 							</div>
 							<p style="margin-top: 15px; color: #ddd; font-size: 0.9em;">
 								⚠️ <strong>Important:</strong> Using <code>&buffer=2500</code> in your view link can help reduce skipped frames at the cost of increased latency.
+							</p>
+							<p style="margin-top: 15px; color: #ddd; font-size: 0.9em;">
+								ℹ️ <strong>Tinker:</strong> The best settings are not set in stone; experiment with different values and encoders to find what works best for you.
 							</p>
 						</div>
 					</div>

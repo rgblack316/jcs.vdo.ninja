@@ -131,8 +131,9 @@ if (urlParams.get("a")){
 	document.getElementById("viewlinka").value = "https://"+path+"/?push="+urlParams.get("a");
 	
 	if (urlParams.get("la")){
-		document.getElementById("viewlinka").value += "&label="+urlParams.get("la");
-		document.getElementById("a").innerHTML = urlParams.get("la")
+		var labelA = urlParams.get("la");
+		document.getElementById("viewlinka").value += "&label="+encodeURIComponent(labelA);
+		document.getElementById("a").textContent = labelA;
 	}
 	
 }
@@ -145,8 +146,9 @@ if (urlParams.get("b")){
 	document.getElementById("viewlinkb").value = "https://"+path+"/?push="+urlParams.get("b");
 	
 	if (urlParams.get("lb")){
-		document.getElementById("viewlinkb").value += "&label="+urlParams.get("lb");
-		document.getElementById("b").innerHTML = urlParams.get("lb")
+		var labelB = urlParams.get("lb");
+		document.getElementById("viewlinkb").value += "&label="+encodeURIComponent(labelB);
+		document.getElementById("b").textContent = labelB;
 	}
 }
 
@@ -193,11 +195,11 @@ function loadIframes(){
 	if (iframeb && (e.source === iframeb.contentWindow)) {
 		console.log(e.data);
 		if (e.data.action == "this-label"){
-			document.getElementById("a").innerHTML = e.data.value;
+			document.getElementById("a").textContent = e.data.value;
 		}
 	} else if (iframea && (e.source === iframea.contentWindow)) {
 		if (e.data.action == "this-label"){
-			document.getElementById("b").innerHTML = e.data.value;
+			document.getElementById("b").textContent = e.data.value;
 		}
 	}
 }, false);

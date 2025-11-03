@@ -85,7 +85,7 @@
         "title": "屏幕共享设置：",
         "widthLabel": "宽度：",
         "heightLabel": "高度：",
-        "resolutionNote": "此分辨率将用于具有"反应"布局的场景中的屏幕共享源。"
+        "resolutionNote": "此分辨率将用于具有反应布局的场景中的屏幕共享源。"
     },
     "autoAddSourcesLabel": "自动将新流添加为源",
     "autoRemoveSourcesLabel": "断开连接时自动删除源",
@@ -94,7 +94,7 @@
         "defaultSizeOption": "默认（1920x1080 位于 0,0）",
         "bestFitOption": "最佳适配（保持纵横比）",
         "stretchToFillOption": "拉伸以填充屏幕",
-        "overrideNote": ""布局"部分中定义的特定布局将覆盖这些场景的设置。"
+        "overrideNote": "布局部分中定义的特定布局将覆盖这些场景的设置。"
     },
     "codec": {
         "label": "编解码器：",
@@ -229,7 +229,7 @@
         "unhighlightingForScreenShare": "摄像头被高亮（{{id}}）。在开始屏幕共享之前取消高亮。",
         "cannotAddScreenShareNotConnected": "无法添加屏幕共享：未连接到 OBS。",
         "cannotAddScreenShareNoRoom": "无法添加屏幕共享：屏幕共享 URL 需要 VDO.Ninja 房间名称。",
-        "cannotAddScreenShareNoReactionLayoutScene": "无法添加屏幕共享：没有配置"反应"布局的场景。",
+        "cannotAddScreenShareNoReactionLayoutScene": "无法添加屏幕共享：没有配置反应布局的场景。",
         "addingUpdatingScreenShareToReactionScenes": "向反应场景添加/更新屏幕共享源 '{{sourceName}}'（URL：{{url}}）。在 '{{primaryScene}}' 中主要创建。（共 {{count}} 个场景）",
         "reconfiguringExistingScreenShare": "重新配置现有屏幕共享源 '{{oldName}}' 为 '{{newName}}'。",
         "reconfiguredRenamedScreenShare": "已重新配置并重命名现有屏幕共享源为 '{{sourceName}}'。",
@@ -283,8 +283,8 @@
         "applyingGridSplitScreen": "将 2 摄像头分屏网格布局应用于场景 '{{sceneName}}'。",
         "reactionMainNotFoundFallbackGrid": "在场景 '{{sceneName}}' 中未找到/不可见反应布局的主内容。应用摄像头的后备网格。",
         "highlightMainNotFoundFallbackGrid": "在场景 '{{sceneName}}' 中未找到/不可见高亮布局的主内容。应用摄像头的后备网格。",
-        "usingGridSceneFallbackSettings": "使用第一个配置的"网格"布局场景（'{{sceneName}}'）的网格设置作为 '{{targetScene}}' 的后备。",
-        "usingDefaultGridFallbackSettings": "未找到"网格"布局场景。使用默认网格设置作为 '{{targetScene}}' 的后备。",
+        "usingGridSceneFallbackSettings": "使用第一个配置的网格布局场景（'{{sceneName}}'）的网格设置作为 '{{targetScene}}' 的后备。",
+        "usingDefaultGridFallbackSettings": "未找到网格布局场景。使用默认网格设置作为 '{{targetScene}}' 的后备。",
         "applyingFallbackGridToCameras": "将后备网格布局应用于场景 '{{sceneName}}' 中的 {{count}} 个摄像头源。",
         "noCamerasForFallbackGridHidingAll": "场景 '{{sceneName}}' 的后备网格中没有要显示的摄像头项目。此场景中的所有 VDO 源将被隐藏。",
         "cannotRemoveStreamNotConnected": "无法从 OBS 删除流 {{id}}：未连接到 OBS。",

@@ -99,6 +99,8 @@ async function main() {
 				getById("mainmenu").style.margin = "30px 0";
 				getById("translateButton").style.display = "none";
 				getById("translateButton").style.opacity = 0;
+				getById("legal").style.display = "none";
+				getById("legal").style.opacity = 0;
 				getById("info").style.display = "none";
 				getById("info").style.opacity = 0;
 				getById("chatBody").innerHTML = "";
@@ -322,6 +324,32 @@ async function main() {
 		  };
 		} else {
 		  warnlog("electronApi prompt function not available");
+		}
+
+		const dragZone = document.getElementById("electronDragZone");
+		if (dragZone) {
+			dragZone.style.display = "block";
+			dragZone.style.setProperty("-webkit-app-region", "drag");
+		}
+
+		const header = document.getElementById("header");
+		if (header) {
+			const interactiveSelectors = [
+				"a",
+				"button",
+				"input",
+				"select",
+				"textarea",
+				"[role='button']",
+				"[onclick]"
+			];
+
+			header.querySelectorAll(interactiveSelectors.join(",")).forEach(node => {
+				node.style.setProperty("-webkit-app-region", "no-drag");
+				if (!node.style.pointerEvents || node.style.pointerEvents === "") {
+					node.style.pointerEvents = "auto";
+				}
+			});
 		}
 	  } catch (e) {
 		console.error("Error setting up Electron prompt:", e);
@@ -574,7 +602,11 @@ async function main() {
 			try {
 				session.whipOutput = decodeURIComponent(session.whipOutput);
 			} catch (e) {}
+			if (!session.whipOutputToken) {
+				session.whipOutputToken = session.whipOutput;
+			}
 			session.whipOutput = "https://cloudflare.vdo.ninja/" + session.whipOutput;
+			session.whipOutputUserSet = true;
 		}
 	}
 	
@@ -645,6 +677,10 @@ async function main() {
 			}
 		} else {
 			getById("publishOutURL").classList.remove("hidden");
+		}
+
+		if (session.whipOutput) {
+			session.whipOutputUserSet = true;
 		}
 
 		if (urlParams.has("whippushtoken") || urlParams.has("whipouttoken") || urlParams.has("pushwhiptoken")) {
@@ -1391,6 +1427,27 @@ async function main() {
 		getById("container-6").classList.add("skip-animation");
 		getById("container-6").classList.remove("pointer");
 		session.framegrab = urlParams.get("framegrab") || false;
+		session.framegrabAudio = false;
+		session.framegrabAudioRequested = false;
+		const framegrabAudioParamName = urlParams.has("framegrabaudio")
+			? "framegrabaudio"
+			: (urlParams.has("audio") ? "audio" : null);
+		session.pendingFramegrabAudioSettings = null;
+		if (framegrabAudioParamName) {
+			session.framegrabAudioRequested = true;
+			const rawValue = urlParams.get(framegrabAudioParamName);
+			if (rawValue === null || rawValue === "") {
+				session.framegrabAudio = true;
+			} else {
+				const normalized = String(rawValue).toLowerCase();
+				session.framegrabAudio = !["0", "false", "no", "off"].includes(normalized);
+			}
+			if (session.framegrabAudio) {
+				session.pendingFramegrabAudioSettings = { enable: true };
+			} else {
+				session.pendingFramegrabAudioSettings = { enable: false };
+			}
+		}
 		delayedStartupFuncs.push([session.publishFrameSource, session.framegrab]);
 		// session.publishFrameSource
 	} else if (urlParams.has("webcam2") || urlParams.has("wc2")) {
@@ -1674,7 +1731,8 @@ async function main() {
 	}
 
 	if (urlParams.has("hands") || urlParams.has("hand")) {
-		session.raisehands = true;
+		session.raisehands = urlParams.get("hands") || urlParams.get("hand") || 1;
+		session.raisehands = parseInt(session.raisehands);
 	}
 
 	if (urlParams.has("portrait") || urlParams.has("916") || urlParams.has("vertical")) {
@@ -1842,12 +1900,12 @@ async function main() {
 		session.recordingInterval = parseInt(session.recordingInterval) || 1;
 		// For Mac: https://gist.github.com/steveseguin/8083172a20ad7c9ebcb449e22fc8fe67
 		// For Windows: https://gist.github.com/steveseguin/7ca1df1df9ec6042f27ecc8d258e3f30
-	} else if ((iOS || iPad) && (urlParams.has("record") || urlParams.has("autorecord"))) {
-		// Auto-enable split recording for iOS devices to prevent memory issues
-		// This works with the blob fallback to ensure recordings don't crash
-		session.recordingInterval = 5; // 5 minutes default for iOS
+	} else if ((SafariVersion || iOS || iPad) && (urlParams.has("record") || urlParams.has("autorecord"))) {
+		// Auto-enable split recording for Safari to prevent memory issues
+		// iOS/iPad: 5 minutes (tighter memory), desktop Safari: 10 minutes
+		session.recordingInterval = (iOS || iPad) ? 5 : 10;
 		if (!session.cleanOutput) {
-			console.log("iOS detected with recording enabled: Auto-enabling 5-minute split recording to prevent memory issues");
+			console.log("Safari detected with recording enabled: Auto-enabling split recording (" + session.recordingInterval + "-minute segments) to prevent memory issues");
 		}
 	}
 	if (urlParams.has("pcm")) {
@@ -2021,27 +2079,6 @@ async function main() {
 		session.cleanOutput = true;
 	}
 	
-	if (urlParams.has('timeouts')) {
-		try {
-			// Process each value, preserving existing ones when no value provided
-			// &timeouts=1000,3000 (updates first two values, keeps rest)
-			// &timeouts=,,,10 (updates only 4th value)
-			// &timeouts= (no changes)
-			// &timeouts=1000,abc,3000 (updates first and third, ignores invalid value)
-			// Guide here: https://gist.github.com/steveseguin/f754a3c9b97a9a091226c8dbc5dc654a
-		  urlParams.get('timeouts').split(',').forEach((val, index) => {
-			if (val !== '') {
-			  const parsedVal = parseInt(val, 10);
-			  if (!isNaN(parsedVal)) {
-				session.reconnectSpeed[index] = parsedVal;
-			  }
-			}
-		  });
-		} catch(e){
-			errorlog(e);
-		}
-	}
-
 	if (urlParams.has("retransmit")) {
 		session.retransmit = true;
 		session.dataMode = true;
@@ -3322,6 +3359,21 @@ async function main() {
 		session.equalizer = true;
 		session.disableWebAudio = false;
 	}
+	// Mic panning (publisher-side): downmix to mono, then pan to stereo output.
+	if (urlParams.has("micpanning") || urlParams.has("mpan")) {
+		let mp = urlParams.get("micpanning") || urlParams.get("mpan");
+		if (mp === null || mp === "" || mp === "true") {
+			session.micPanning = 90; // center by default, but enable control
+		} else {
+			mp = parseInt(mp);
+			if (isNaN(mp)) { mp = 90; }
+			if (mp < 0) { mp = 0; }
+			if (mp > 180) { mp = 180; }
+			session.micPanning = mp;
+		}
+		// Ensure WebAudio outbound pipeline is enabled (unless &noap set later)
+		session.disableWebAudio = false;
+	}
 	if (urlParams.has("lowcut") || urlParams.has("lc") || urlParams.has("higpass")) {
 		session.lowcut = urlParams.get("lowcut") || urlParams.get("lc") || urlParams.get("higpass") || 100;
 		session.lowcut = parseInt(session.lowcut);
@@ -3733,7 +3785,8 @@ async function main() {
 				errorlog(e);
 			}
 		}
-	}
+
+		}
 
 	if (session.videoDevice === 0) {
 		getById("previewWebcam").classList.add("miconly");
@@ -3819,6 +3872,49 @@ async function main() {
 		}
 		log("exclude audio/video playback");
 		log(session.exclude);
+	}
+	
+	if (urlParams.has("noscreenshare") || urlParams.has("noscreenshares") || urlParams.has("noscreen") || urlParams.has("noscreens")) {
+		session.noScreenShare = true;
+		log("disable screen share playback");
+	}
+	if (urlParams.has("screenp2p") || urlParams.has("noscreenwhep")) {
+		session.screenWhepPreference = "p2p";
+	}
+	if (urlParams.has("screenwheponly")) {
+		session.screenWhepPreference = "whep";
+	}
+	if (urlParams.has("screenwhep")) {
+		const pref = parseScreenToggleParam(urlParams.get("screenwhep"));
+		if (pref === false) {
+			session.screenWhepPreference = "p2p";
+		} else if (pref === true) {
+			session.screenWhepPreference = "whep";
+		}
+	}
+	function parseScreenToggleParam(value) {
+		if (value === null || value === undefined) {
+			return true;
+		}
+		const normalized = ("" + value).trim().toLowerCase();
+		if (!normalized.length) {
+			return true;
+		}
+		if (["0", "false", "no", "off", "disable", "disabled", "none"].includes(normalized)) {
+			return false;
+		}
+		if (["1", "true", "yes", "on", "enable", "enabled"].includes(normalized)) {
+			return true;
+		}
+		return true;
+	}
+	if (urlParams.has("allowscreenvideo")) {
+		session.screenVideoOverride = parseScreenToggleParam(urlParams.get("allowscreenvideo"));
+		log("screen share video override: " + session.screenVideoOverride);
+	}
+	if (urlParams.has("allowscreenaudio")) {
+		session.screenAudioOverride = parseScreenToggleParam(urlParams.get("allowscreenaudio"));
+		log("screen share audio override: " + session.screenAudioOverride);
 	}
 	
 	if (urlParams.has("excludeaudio") || urlParams.has("exaudio") || urlParams.has("silence")) {
@@ -3954,6 +4050,127 @@ async function main() {
 	if (urlParams.has("chunkedbuffer") || urlParams.has("sendingbuffer")) {
 		session.sendingBuffer = parseInt(urlParams.get("chunkedbuffer")) || parseInt(urlParams.get("sendingbuffer")) || 5000; // sender side; enables to allows.
 	}
+
+	const chunkProfiles = {
+		mobile: {
+			chunkfec: 3,
+			chunknack: true,
+			chunkbuffer: 900,
+			chunkbufferfloor: 600,
+			chunkbufferceil: 1600,
+			chunkjitterslack: 250,
+			chunkadapt: "framerate",
+			chunkadaptfloor: 320,
+			chunkadaptceil: 1400,
+			chunkadaptthreshold: 260,
+			chunkadaptmaxdrop: 10,
+			chunkadaptinterval: 1200
+		},
+		balanced: {
+			chunkfec: 4,
+			chunknack: true,
+			chunkbuffer: 750,
+			chunkbufferfloor: 450,
+			chunkbufferceil: 1400,
+			chunkjitterslack: 220,
+			chunkadapt: "hybrid",
+			chunkadaptfloor: 420,
+			chunkadaptceil: 2600,
+			chunkadaptthreshold: 340,
+			chunkadaptmaxdrop: 6,
+			chunkadaptinterval: 900
+		},
+		desktop: {
+			chunkfec: 5,
+			chunknack: true,
+			chunkbuffer: 620,
+			chunkbufferfloor: 400,
+			chunkbufferceil: 1100,
+			chunkjitterslack: 180,
+			chunkadapt: "bitrate",
+			chunkadaptfloor: 580,
+			chunkadaptceil: 4200,
+			chunkadaptthreshold: 360,
+			chunkadaptmaxdrop: 4,
+			chunkadaptinterval: 700
+		}
+	};
+
+	function applyChunkPreset(preset) {
+		if (!preset) {
+			return;
+		}
+		Object.keys(preset).forEach(key => {
+			const value = preset[key];
+			const sessionKey = key;
+			session[sessionKey] = value;
+		});
+	}
+
+	if (urlParams.has("chunkprofile")) {
+		const profileName = (urlParams.get("chunkprofile") || "").toLowerCase();
+		if (chunkProfiles[profileName]) {
+			session.chunkprofile = profileName;
+			applyChunkPreset(chunkProfiles[profileName]);
+		}
+	}
+
+	function parseIntegerParam(name, target, clamp = null) {
+		if (!urlParams.has(name)) {
+			return;
+		}
+		let value = parseInt(urlParams.get(name));
+		if (!Number.isFinite(value)) {
+			return;
+		}
+		if (clamp && Array.isArray(clamp)) {
+			const [min, max] = clamp;
+			if (typeof min === "number") {
+				value = Math.max(min, value);
+			}
+			if (typeof max === "number") {
+				value = Math.min(max, value);
+			}
+		}
+		session[target] = value;
+	}
+
+	function parseBooleanParam(name, target) {
+		if (!urlParams.has(name)) {
+			return;
+		}
+		const raw = urlParams.get(name);
+		if (raw === null || raw === "" || raw === "1" || raw.toLowerCase() === "true") {
+			session[target] = true;
+		} else if (raw.toLowerCase() === "0" || raw.toLowerCase() === "false") {
+			session[target] = false;
+		} else {
+			session[target] = true;
+		}
+	}
+
+	parseIntegerParam("chunkfec", "chunkfec", [0, 12]);
+	parseBooleanParam("chunknack", "chunknack");
+	parseIntegerParam("chunkbuffer", "chunkbuffer", [0, 30000]);
+	parseIntegerParam("chunkbufferfloor", "chunkbufferfloor", [0, 30000]);
+	parseIntegerParam("chunkbufferceil", "chunkbufferceil", [0, 60000]);
+	parseIntegerParam("chunkjitterslack", "chunkjitterslack", [0, 10000]);
+
+	if (urlParams.has("chunkadapt")) {
+		const adaptMode = (urlParams.get("chunkadapt") || "").toLowerCase();
+		if (["bitrate", "framerate", "hybrid"].includes(adaptMode)) {
+			session.chunkadapt = adaptMode;
+		}
+	}
+	parseIntegerParam("chunkadaptfloor", "chunkadaptfloor", [0, 10000]);
+	parseIntegerParam("chunkadaptceil", "chunkadaptceil", [0, 100000]);
+	parseIntegerParam("chunkadaptthreshold", "chunkadaptthreshold", [0, 10000]);
+	parseIntegerParam("chunkadaptmaxdrop", "chunkadaptmaxdrop", [0, 120]);
+	parseIntegerParam("chunkadaptinterval", "chunkadaptinterval", [100, 60000]);
+
+	parseIntegerParam("chunkretry", "chunkretry", [0, 60000]);
+	parseIntegerParam("chunkcache", "chunkcache", [0, 60000]);
+	parseIntegerParam("chunkchunksize", "chunkchunksize", [2048, 65536]);
 
 	if (urlParams.has("nochunk") || urlParams.has("nochunked")) {
 		// viewer side
@@ -4698,6 +4915,7 @@ async function main() {
 		session.screensharebutton = false;
 		getById("translateButton").style.display = "none";
 		getById("credits").style.display = "none";
+		getById("legal").style.display = "none";
 		getById("header").style.display = "none";
 		getById("controlButtons").classList.add("hidden");
 		getById("helpbutton").style.display = "none";
@@ -4715,7 +4933,6 @@ async function main() {
 		`;
 		document.head.appendChild(styleTmp);
 	}
-	getById("credits").innerHTML = "Version: " + session.version + " - " + getById("credits").innerHTML;
 
 	if (urlParams.has("ssb") || urlParams.has("screensharebutton")) {
 		session.screensharebutton = true;
@@ -4944,6 +5161,18 @@ async function main() {
 		}
 	}
 
+	if (urlParams.has("mirroroutput")) {
+		let mirrorOutputParam = urlParams.get("mirroroutput");
+		let value = mirrorOutputParam ? mirrorOutputParam.toLowerCase() : "";
+		let enableMirrorOutput = !(value === "0" || value === "false" || value === "off");
+		session.mirrorOutput = enableMirrorOutput;
+		if (session.mirrorOutput) {
+			session.permaMirrored = true;
+		} else if (session.permaMirrored) {
+			session.permaMirrored = false;
+		}
+	}
+
 	if (urlParams.has("flip")) {
 		if (urlParams.get("flip") == "0") {
 			session.flipped = false;
@@ -4952,6 +5181,15 @@ async function main() {
 		} else if (urlParams.get("flip") == "off") {
 			session.flipped = false;
 		} else {
+			session.flipped = true;
+		}
+	}
+
+	if (urlParams.has("flipoutput")) {
+		let flipOutputParam = urlParams.get("flipoutput");
+		let value = flipOutputParam ? flipOutputParam.toLowerCase() : "";
+		session.flipOutput = !(value === "0" || value === "false" || value === "off");
+		if (session.flipOutput) {
 			session.flipped = true;
 		}
 	}
@@ -4999,21 +5237,6 @@ async function main() {
 	}
 	if (urlParams.has("stunonly")) {
 		session.stunOnly = true;
-	}
-
-	//if (!(ChromiumVersion>=57)){
-	//	getById("effectSelector").disabled=true;
-	//	getById("effectSelector3").disabled=true;
-	//	getById("effectSelector").title = "Effects are only support on Chromium-based browsers";
-	//	getById("effectSelector3").title = "Effects are only support on Chromium-based browsers";
-	//	var elementsTmp = document.querySelectorAll('[data-effectsNotice]');
-	//	for (let i = 0; i < elementsTmp.length; i++) {
-	//		elementsTmp[i].style.display = "inline-block";
-	//	}
-	//}
-
-	if (urlParams.has("viewereffect") || urlParams.has("viewereffects") || urlParams.has("ve")) {
-		session.viewereffects = parseInt(urlParams.get("viewereffect")) || parseInt(urlParams.get("ve")) || false;
 	}
 
 	if (urlParams.has("activespeaker") || urlParams.has("speakerview") || urlParams.has("sas")) {
@@ -5544,12 +5767,43 @@ async function main() {
 		session.queueType = 3;
 	}
 
-	if (urlParams.has("queue4") || urlParams.has("holdwithvideo")) {
-		// the guest can't see the director until approved, but does get a messaging telling them to wait.
-		session.queue = true;
-		session.queueType = 4;
-	}
+    if (urlParams.has("queue4") || urlParams.has("holdwithvideo")) {
+        // the guest can't see the director until approved, but does get a messaging telling them to wait.
+        session.queue = true;
+        session.queueType = 4;
+    }
 
+    // Ensure hold-mode approval UI is visible on the director page (index.html)
+    if (session.director) {
+        
+        getById('codirectorSettings_approve_container').style.display = "block";
+
+        if (urlParams.has("approvepopup")) {
+            session.approval_popup = true;
+            try { log("[flags] &approvepopup detected; approval_popup=true"); } catch(e) {}
+        } 
+		
+        // No need for &codirectorapprove or &codirectorrouteapprove; routed approvals are default.
+        if (urlParams.has("nocodirectorapprove")) {
+            session.codirector_disable_approve = true;
+            try { log("[flags] &nocodirectorapprove enabled; co-director approvals disabled"); } catch(e) {}
+        }
+        // Force-hold overrides guest URL hold flags
+        if (urlParams.has("forcehold")) {
+            session.forceHoldType = 3; // hold without video
+            try { log("[flags] &forcehold enabled (queueType=3)"); } catch(e) {}
+        } else if (urlParams.has("forceholdwithvideo")) {
+            session.forceHoldType = 4; // hold with video
+            try { log("[flags] &forceholdwithvideo enabled (queueType=4)"); } catch(e) {}
+        }
+        // Reflect current allow/disable state in the modal checkbox (allow=checked by default)
+        try {
+            var box = getById('codirectorSettings_approve');
+            if (box) { box.checked = !session.codirector_disable_approve; }
+            var box2 = getById('codirectorSettings_approvepopup');
+            if (box2) { box2.checked = !!session.approval_popup; }
+        } catch (e) { /* noop */ }
+    }
 	// do not reference stream ID before this point, as it might change after this point.
 
 	if (urlParams.has("push") || urlParams.has("id") || urlParams.has("permaid") || (session.sticky && session.decrypted)) {
@@ -5641,7 +5895,6 @@ async function main() {
 		}
 	}
 	
-	
 	if (window.vdoAuth){
 		if (session.streamID) {
 		  await window.vdoAuth.assignStream();
@@ -5689,6 +5942,7 @@ async function main() {
 
 	if (session.permaid === false && session.roomid === false && session.view === false && session.effect === false && session.director === false) {
 		session.effect = null;
+		getById("credits").innerHTML = "Version: " + session.version + ' <a href="https://github.com/steveseguin/vdoninja" aria-hidden="true" title="Source Code via Github">VDO.Ninja, by Steve Seguin</a> | ' + getById("credits").innerHTML;
 	}
 
 	if (session.mobile && session.permaid === false && !session.roomid) {
@@ -5704,39 +5958,111 @@ async function main() {
 		session.whepHost = urlParams.get("hostwhep") || urlParams.get("whepout") || session.streamID || false;
 	}
 
+	// General WHIP output toggles
+	if (urlParams.has("whipnoscreen")) {
+		session.whipPublishScreen = false;
+	}
+	if (urlParams.has("whipprimaryonly")) {
+		session.whipPublishPrimary = true;
+		session.whipPublishScreen = false;
+	}
+	if (urlParams.has("whipscreenonly")) {
+		session.whipPublishPrimary = false;
+		session.whipPublishScreen = true;
+	}
+
 	if (urlParams.get("mediamtx")){
 		session.mediamtx = urlParams.get("mediamtx");
 	} 
 	
 	if (session.mediamtx){
+		if (urlParams.has("mediamtxnoscreen")) {
+			session.whipPublishScreen = false;
+		}
+		if (urlParams.has("mediamtxscreenonly")) {
+			session.whipPublishPrimary = false;
+			session.whipPublishScreen = true;
+		}
 		if (!session.mediamtx.includes(".") && !session.mediamtx.includes("localhost")){
 			session.mediamtx += ".com";
 		}
 		if (!session.mediamtx.includes(":")){
 			session.mediamtx += ":8889";
 		}
-		if (!session.whipOutput){
-			if (!(session.mediamtx.startsWith("https://") || session.mediamtx.startsWith("http://"))){
-				if (session.mediamtx.startsWith("localhost:")){
-					session.whipOutput = "http://"+session.mediamtx+"/"+session.streamID+"/whip";
-					
-					if (!session.whipoutSettings){
-						session.whipoutSettings = { type: "whep", url: "http://"+session.mediamtx+"/"+session.streamID+"/whep" };
-						console.log("WHIP OUT: "+session.whipOutput+", WHEP SHARE: "+session.whipoutSettings.url);
-					}
-					
-				} else {
-					session.whipOutput = "https://"+session.mediamtx+"/"+session.streamID+"/whip";
-				}
-			} else if (session.mediamtx.endsWith("/")){
-				session.whipOutput = session.mediamtx+session.streamID+"/whip";
-			} else {
-				session.whipOutput = session.mediamtx+"/"+session.streamID+"/whip";
+		let mediamtxBase = session.mediamtx;
+		let scheme = "https://";
+		if (mediamtxBase.startsWith("http://") || mediamtxBase.startsWith("https://")) {
+			scheme = "";
+		} else if (mediamtxBase.startsWith("localhost:")) {
+			scheme = "http://";
+		}
+		if (scheme){
+			mediamtxBase = scheme + mediamtxBase;
+		}
+		if (mediamtxBase.endsWith("/")) {
+			mediamtxBase = mediamtxBase.slice(0, -1);
+		}
+		const streamId = session.streamID;
+		const screenId = streamId + "_s";
+		const buildEndpoint = id => `${mediamtxBase}/${id}`;
+
+		const primaryWhipUrl = `${buildEndpoint(streamId)}/whip`;
+		const primaryWhepSettings = {
+			type: "whep",
+			url: `${buildEndpoint(streamId)}/whep`,
+			token: streamId,
+			media: "primary",
+			started: false
+		};
+		const screenWhipUrl = `${buildEndpoint(screenId)}/whip`;
+		const screenWhepSettings = {
+			type: "whep",
+			url: `${buildEndpoint(screenId)}/whep`,
+			token: screenId,
+			media: "screen",
+			started: false
+		};
+
+		if (session.whipPublishPrimary) {
+			if (!session.whipOutputUserSet) {
+				session.whipOutput = primaryWhipUrl;
+			}
+			if (!session.whipoutSettingsUserSet) {
+				session.whipoutSettings = primaryWhepSettings;
+			}
+		} else {
+			if (!session.whipOutputUserSet) {
+				session.whipOutput = false;
+			}
+			if (!session.whipoutSettingsUserSet) {
+				session.whipoutSettings = false;
 			}
 		}
-		if (!session.whipoutSettings){
-			session.whipoutSettings = { type: "whep", url: "https://"+session.mediamtx+"/"+session.streamID+"/whep" };
-			console.log("WHIP OUT: "+session.whipOutput+", WHEP SHARE: "+session.whipoutSettings.url);
+
+		if (session.whipPublishScreen) {
+			if (!session.whipOutputScreenUserSet) {
+				session.whipOutputScreen = screenWhipUrl;
+			}
+			if (!session.whipoutScreenSettingsUserSet) {
+				session.whipoutScreenSettings = screenWhepSettings;
+			}
+		} else {
+			if (!session.whipOutputScreenUserSet) {
+				session.whipOutputScreen = false;
+			}
+			if (!session.whipoutScreenSettingsUserSet) {
+				session.whipoutScreenSettings = false;
+			}
+		}
+
+		if (session.whipPublishPrimary && session.whipoutSettings) {
+			console.log("WHIP OUT: " + session.whipOutput + ", WHEP SHARE: " + session.whipoutSettings.url);
+		}
+		if (session.whipPublishScreen && session.whipoutScreenSettings) {
+			console.log("WHIP OUT SCREEN: " + session.whipOutputScreen + ", WHEP SHARE: " + session.whipoutScreenSettings.url);
+		}
+		if (session.whipPublishScreen && session.whipOutputScreen && session.screenShareState) {
+			whipOutScreen();
 		}
 		if (session.stereo === false){ 
 			if (!session.whipOutAudioCodec || (session.whipOutAudioCodec=="opus")){
@@ -5744,7 +6070,19 @@ async function main() {
 			}
 		}
 	}
- 
+
+	if (urlParams.has("meshcastnoscreen")) {
+		session.whipPublishScreen = false;
+	}
+	if (urlParams.has("meshcastscreenonly")) {
+		session.whipPublishPrimary = false;
+		session.whipPublishScreen = true;
+	}
+	if (urlParams.has("meshcastprimaryonly")) {
+		session.whipPublishPrimary = true;
+		session.whipPublishScreen = false;
+	}
+
 	if (urlParams.has("effects") || urlParams.has("effect")) {
 		session.effect = urlParams.get("effects") || urlParams.get("effect") || null;
 	} else if (urlParams.has("digitalzoom")) {
@@ -6126,6 +6464,7 @@ async function main() {
 			}
 			if (session.whepSrc) {
 				session.whipoutSettings = { type: "whep", url: session.whepSrc };
+				session.whipoutSettingsUserSet = true;
 			}
 		} catch (e) {
 			errorlog(e);
@@ -6147,6 +6486,7 @@ async function main() {
 				}
 				if (session.whepSrcToken) {
 					session.whipoutSettings.token = session.whepSrcToken;
+					session.whipoutSettingsUserSet = true;
 				}
 			} catch (e) {
 				errorlog(e);
@@ -6248,6 +6588,7 @@ async function main() {
 			getById("head2").className = "hidden";
 			getById("mainmenu").style.display = "none";
 			getById("translateButton").style.display = "none";
+			getById("legal").style.display = "none";
 			log("Update Mixer Event on REsize SET");
 			window.onresize = updateMixer;
 			window.onorientationchange = function () {
@@ -6346,6 +6687,7 @@ async function main() {
 		}
 		log("Update Mixer Event on REsize SET");
 		getById("translateButton").style.display = "none";
+		getById("legal").style.display = "none";
 		window.onresize = updateMixer;
 		window.onorientationchange = function () {
 			setTimeout(function () {
@@ -6413,6 +6755,7 @@ async function main() {
 	if ((session.view!==false) || session.whepInput || session.whipView) {
 		getById("main").className = "";
 		getById("credits").style.display = "none";
+		getById("legal").style.display = "none";
 		try {
 			if (session.label === false) {
 				if (document.title == "") {
@@ -6695,6 +7038,10 @@ async function main() {
 		// iFRAME api support
 		if (!e.data || typeof e.data !== "object") {
 			warnlog(e);
+			return;
+		}
+		// Ignore framegrab-audio-settings - handled by lib.js message listener
+		if (e.data.action === "framegrab-audio-settings") {
 			return;
 		}
 		log(e);
@@ -7024,35 +7371,12 @@ async function main() {
 
 		if ("volume" in e.data) {
 			// might not work with iframes or meshcast currently.
-			session.volume = parseFloat(e.data.volume) || 0;
-			if (session.volume > 1.0) {
+			var requestedVolume = parseFloat(e.data.volume) || 0;
+			if (requestedVolume > 1.0) {
 				// this is a bit quasi improper.  But the API is official 0 to 1.0; not 0 to 100, so this is mainly a catch for those not using the API right.
-				session.volume = session.volume / 100.0;
+				requestedVolume = requestedVolume / 100.0;
 			}
-			if (!("target" in e.data) || e.data.target == "*") {
-				if (session.videoElement) {
-					session.videoElement.volume = session.volume;
-				}
-			}
-			for (var i in session.rpcs) {
-				try {
-					if (!session.rpcs[i].videoElement) {
-						continue;
-					}
-					if ("streamID" in session.rpcs[i]) {
-						if ("target" in e.data) {
-							if (session.rpcs[i].streamID == e.data.target || e.data.target == "*") {
-								// specify a stream ID or let it apply to all videos
-								session.rpcs[i].videoElement.volume = session.volume;
-							}
-						} else {
-							session.rpcs[i].videoElement.volume = session.volume;
-						}
-					}
-				} catch (e) {
-					errorlog(e);
-				}
-			}
+			setSessionPlaybackVolume(requestedVolume, e.data.target);
 		}
 
 		if ("enableYouTube" in e.data) {

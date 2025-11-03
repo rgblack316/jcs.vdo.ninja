@@ -1123,6 +1123,53 @@
 		return temp.innerHTML;
 	}
 
+	function decodeHTML(value) {
+		if (value === null || value === undefined) {
+			return "";
+		}
+		var temp = document.createElement("textarea");
+		temp.innerHTML = value;
+		return temp.value;
+	}
+
+	function replaceURLs(message) {
+		if (message === undefined || message === null) {
+			return "";
+		}
+		var original = decodeHTML(String(message));
+		var urlRegex = /(((https?:\/\/)|(www\.))[^\s]+)/g;
+		var result = "";
+		var lastIndex = 0;
+		var match;
+		while ((match = urlRegex.exec(original)) !== null) {
+			result += sanitize(original.slice(lastIndex, match.index));
+			var url = match[0];
+			var trailing = "";
+			while (/[.,;!:\*\?)]$/.test(url)) {
+				trailing = url.slice(-1) + trailing;
+				url = url.slice(0, -1);
+			}
+			if (url) {
+				var hyperlink = url;
+				if (!/^https?:\/\//i.test(hyperlink)) {
+					hyperlink = "http://" + hyperlink;
+				}
+				var display = url.length > 35 ? url.substring(0, 35) + "..." : url;
+				result += '<a href="' + sanitize(hyperlink) + '" title="Click to open the link in a new tab" target="_blank" rel="noopener noreferrer">' + sanitize(display) + "</a>";
+			} else {
+				result += sanitize(match[0]);
+			}
+			if (trailing) {
+				result += sanitize(trailing);
+			}
+			lastIndex = match.index + match[0].length;
+		}
+		if (lastIndex < original.length) {
+			result += sanitize(original.slice(lastIndex));
+		}
+		return result;
+	}
+
 	function EnterButtonChat(event){
 		 // Number 13 is the "Enter" key on the keyboard
 		var key = event.which || event.keyCode;
@@ -1186,23 +1233,26 @@
 			/////////////////////////////
 			var label = "";
 			if (message.label){
-				label = message.label;
+				label = sanitize(decodeHTML(message.label));
 			} 
-			
+			var labelPrefix = label ? label + " " : "";
+			var safeMessage = replaceURLs(message.msg);
+			var safeTime = sanitize(time);
+
 			if (message.type == "sent"){
-				msg.innerHTML = "<span class='chat_message chat_sent'>"+message.msg + "  </span><i><small> <small>- "+time+"</small></small></i><span style='display:none'>"+label+"</span>";
+				msg.innerHTML = "<span class='chat_message chat_sent'>"+safeMessage + "  </span><i><small> <small>- "+safeTime+"</small></small></i><span style='display:none'>"+label+"</span>";
 				msg.classList.add("outMessage");
 			} else if (message.type == "recv"){
-				msg.innerHTML = label+"<span class='chat_message chat_recv'>"+message.msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+				msg.innerHTML = labelPrefix+"<span class='chat_message chat_recv'>"+safeMessage + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("inMessage");
 			} else if (message.type == "action"){
-				msg.innerHTML = label+"<span class='chat_message chat_action'>"+message.msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+				msg.innerHTML = labelPrefix+"<span class='chat_message chat_action'>"+safeMessage + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("actionMessage");
 			} else if (message.type == "alert"){
-				msg.innerHTML = "<span class='chat_message chat_alert'>"+message.msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+				msg.innerHTML = "<span class='chat_message chat_alert'>"+safeMessage + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("inMessage");
 			} else {
-				msg.innerHTML = "<span class='chat_message chat_other'>"+message.msg + "  </span><i><small> <small>- "+time+"</small></small></i>";
+				msg.innerHTML = "<span class='chat_message chat_other'>"+safeMessage + "  </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("inMessage");
 			}
 			document.getElementById("chatBody").appendChild(msg);
@@ -1216,23 +1266,27 @@
 				/////////////////////////////
 				var label = "";
 				if (messageList[i].label){
-					label = messageList[i].label;
+					label = sanitize(decodeHTML(messageList[i].label));
 				} 
 				
+				var messageContent = replaceURLs(messageList[i].msg);
+				var labelPrefix = label ? label + " " : "";
+				var safeTime = sanitize(time);
+
 				if (messageList[i].type == "sent"){
-					msg.innerHTML = "<span class='chat_message chat_sent'>"+messageList[i].msg + "  </span><i><small> <small>- "+time+"</small></small></i><span style='display:none'>"+label+"</span>";
+					msg.innerHTML = "<span class='chat_message chat_sent'>"+messageContent + "  </span><i><small> <small>- "+safeTime+"</small></small></i><span style='display:none'>"+label+"</span>";
 					msg.classList.add("outMessage");
 				} else if (messageList[i].type == "recv"){
-					msg.innerHTML = label+"<span class='chat_message chat_recv'>"+messageList[i].msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+					msg.innerHTML = labelPrefix+"<span class='chat_message chat_recv'>"+messageContent + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 					msg.classList.add("inMessage");
 				} else if (messageList[i].type == "action"){
-					msg.innerHTML = label+"<span class='chat_message chat_action'>"+messageList[i].msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+					msg.innerHTML = labelPrefix+"<span class='chat_message chat_action'>"+messageContent + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 					msg.classList.add("actionMessage");
 				} else if (messageList[i].type == "alert"){
-					msg.innerHTML = "<span class='chat_message chat_alert'>"+messageList[i].msg + " </span><i><small> <small>- "+time+"</small></small></i>";
+					msg.innerHTML = "<span class='chat_message chat_alert'>"+messageContent + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 					msg.classList.add("inMessage");
 				} else {
-					msg.innerHTML = "<span class='chat_message chat_other'>"+messageList[i].msg + "  </span><i><small> <small>- "+time+"</small></small></i>";
+					msg.innerHTML = "<span class='chat_message chat_other'>"+messageContent + "  </span><i><small> <small>- "+safeTime+"</small></small></i>";
 					msg.classList.add("inMessage");
 				}
 				

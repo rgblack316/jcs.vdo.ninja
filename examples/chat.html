@@ -2,7 +2,7 @@
 	<head>
 		<meta charset="utf8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>VDON Chat Overlay</title>
+		<title>OBSN Chat Overlay</title>
 		<style>
 		
 			@font-face {
@@ -23,31 +23,26 @@
 				max-width:100%;
 			}
 
-			ul {
+			div {
 				margin:0;
-				background-color: #0000;
+				background-color: black; 
+				padding: 8px 8px 0px 8px;
 				color: white;
 				font-family: Cousine, monospace;
 				font-size: 3.2em;
 				line-height: 1.1em;
 				letter-spacing: 0.0em;
 				text-transform: uppercase;
-				padding: 0em;
 				text-shadow: 0.05em 0.05em 0px rgba(0,0,0,1);
 				max-width:100%;
-			}
-			
-			ul li { 
-				background-color: black; 
-				padding: 8px 8px 0px 8px;
-				margin:0;
 				word-wrap: break-word;
 				overflow-wrap: break-word;
-				word-wrap: break-word;
 				word-break: break-all;
 				hyphens: auto;
-				max-width:100%;
+				display:inline-block;
 			}
+			
+			
 			
 			a {
 				color:white;
@@ -148,30 +143,22 @@
 			}
 
 			function logData(type, data) {
-				var log = document.body.getElementsByTagName("ul")[0];
-				var entry = document.createElement('li');
+				var span = document.createElement('span');
+				var entry = document.createElement('div');
 				if (type){
-					var typeElement = document.createElement("i");
-					typeElement.textContent = type;
+					var typeElement = document.createElement('i');
+					typeElement.textContent = type.replace(/_/g, ' ');
 					entry.appendChild(typeElement);
 					entry.appendChild(document.createTextNode(" "));
 				}
-				var message = document.createElement("span");
+				var message = document.createElement('span');
 				message.textContent = data;
 				entry.appendChild(message);
-				
-				//setTimeout(function(entry){ // hide message after 60 seconds
-			//		entry.innerHTML="";
-			//		entry.remove();
-			//	},60000,entry);
-				
-				log.appendChild(entry);
+				span.appendChild(entry);
+				document.body.prepend(span);
 			}
 		</script>
 	</head>
 	<body onload="loadIframe();">
-			<ul></ul>
-
-
 	</body>
 </html>

@@ -169,9 +169,14 @@
 			function logData(type, data) {
 				var entry = document.createElement('div');
 				if (type) {
-					type = "<i>" + type.replace(/_/g, ' ') + "</i>";
+					var typeElement = document.createElement('i');
+					typeElement.textContent = type.replace(/_/g, ' ');
+					entry.appendChild(typeElement);
+					entry.appendChild(document.createTextNode(" "));
 				}
-				entry.innerHTML = type + data;
+				var message = document.createElement('span');
+				message.textContent = data;
+				entry.appendChild(message);
 				document.getElementById('chat-overlay').prepend(entry);
 			}
 

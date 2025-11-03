@@ -102,6 +102,48 @@ function loadIframe(url=false){  // this is pretty important if you want to avoi
 	var videos = iframe.contentWindow.document.querySelectorAll("video");
 	var sensors = {};
 	
+	function appendTextLine(container, text, indentLevel){
+		var line = document.createElement("div");
+		if (indentLevel){
+			line.style.marginLeft = (indentLevel * 12) + "px";
+		}
+		line.textContent = text;
+		container.appendChild(line);
+	}
+	
+	function appendKeyValueList(container, obj, indentLevel){
+		indentLevel = indentLevel || 0;
+		for (var key in obj) {
+			if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+				continue;
+			}
+			var value = obj[key];
+			if (typeof value === "object" && value !== null) {
+				appendTextLine(container, key + ":", indentLevel);
+				appendKeyValueList(container, value, indentLevel + 1);
+			} else {
+				appendTextLine(container, key + ": " + value, indentLevel);
+			}
+		}
+	}
+	
+	function getOrCreateOutput(id, borderStyle){
+		var element = id ? document.getElementById(id) : null;
+		if (element){
+			element.textContent = "";
+			return element;
+		}
+		var div = document.createElement("div");
+		if (borderStyle){
+			div.style.border = borderStyle;
+		}
+		if (id){
+			div.id = id;
+		}
+		iframeContainer.appendChild(div);
+		return div;
+	}
+	
 	function drawFrame(vid){
 		try {
 			if (sensors.mag){ // androids may not support this.
@@ -160,34 +202,39 @@ function loadIframe(url=false){  // this is pretty important if you want to avoi
 		if (e.source != iframe.contentWindow){return} // reject messages send from other iframes
 		
 		if ("stats" in e.data){
-			var outputWindow = document.createElement("div");
-			//console.log(e.data.stats);
-			
-			
-			var out = "<br />total_inbound_connections:"+e.data.stats.total_inbound_connections;
-			out += "<br />total_outbound_connections:"+e.data.stats.total_outbound_connections;
+			var statsBox = document.createElement("div");
+			appendTextLine(statsBox, "total_inbound_connections: " + e.data.stats.total_inbound_connections);
+			appendTextLine(statsBox, "total_outbound_connections: " + e.data.stats.total_outbound_connections);
 			
 			for (var streamID in e.data.stats.inbound){
-				out += "<br /><br /><b>streamID:</b> "+streamID+"<br />";
-				out += printValues(e.data.stats.inbound[streamID]);
+				if (!Object.prototype.hasOwnProperty.call(e.data.stats.inbound, streamID)){
+					continue;
+				}
+				var streamHeader = document.createElement("div");
+				streamHeader.style.marginTop = "8px";
+				var streamLabel = document.createElement("strong");
+				streamLabel.textContent = "streamID:";
+				streamHeader.appendChild(streamLabel);
+				streamHeader.appendChild(document.createTextNode(" " + streamID));
+				statsBox.appendChild(streamHeader);
+				appendKeyValueList(statsBox, e.data.stats.inbound[streamID], 1);
 			}
 			
-			outputWindow.innerHTML = out;
-			iframeContainer.appendChild(outputWindow);
+			iframeContainer.appendChild(statsBox);
 		}
 		
 		if ("gotChat" in e.data){
-			var outputWindow = document.createElement("div");
-			outputWindow.innerHTML = e.data.gotChat.msg;
-			outputWindow.style.border="1px dotted black";
-			iframeContainer.appendChild(outputWindow);
+			var chatBox = document.createElement("div");
+			chatBox.textContent = e.data.gotChat.msg;
+			chatBox.style.border="1px dotted black";
+			iframeContainer.appendChild(chatBox);
 		}
 		
 		if ("action" in e.data){
-			var outputWindow = document.createElement("div");
-			outputWindow.innerHTML = "child-page-action: "+e.data.action+"<br />";
-			outputWindow.style.border="1px dotted black";
-			iframeContainer.appendChild(outputWindow);
+			var actionBox = document.createElement("div");
+			appendTextLine(actionBox, "child-page-action: " + e.data.action);
+			actionBox.style.border="1px dotted black";
+			iframeContainer.appendChild(actionBox);
 			console.log(e.data.action);
 			
 			if (e.data.action == "new-view-connection"){
@@ -200,81 +247,53 @@ function loadIframe(url=false){  // this is pretty important if you want to avoi
 		
 		
 		if ("streamIDs" in e.data){
-			var outputWindow = document.createElement("div");
-			outputWindow.innerHTML = "child-page-action: streamIDs<br />";
+			var streamBox = document.createElement("div");
+			streamBox.style.border="1px dotted black";
+			appendTextLine(streamBox, "child-page-action: streamIDs");
 			for (var key in e.data.streamIDs) {
-				outputWindow.innerHTML += "streamID: " +  key + ", label:"+e.data.streamIDs[key] + "\n";          
+				if (!Object.prototype.hasOwnProperty.call(e.data.streamIDs, key)){
+					continue;
+				}
+				appendTextLine(streamBox, "streamID: " +  key + ", label: " + e.data.streamIDs[key], 1);
 			}
-			outputWindow.style.border="1px dotted black";
-			iframeContainer.appendChild(outputWindow);
+			iframeContainer.appendChild(streamBox);
 		}
 		
 		if ("loudness" in e.data){
-			//console.log(e.data);
-			if (document.getElementById("loudness")){
-				outputWindow = document.getElementById("loudness");
-			} else {
-				var outputWindow = document.createElement("div");
-				outputWindow.style.border="1px dotted black";
-				iframeContainer.appendChild(outputWindow);
-				outputWindow.id = "loudness";
-			}
-			outputWindow.innerHTML = "child-page-action: loudness<br />";
+			var loudnessBox = getOrCreateOutput("loudness", "1px dotted black");
+			appendTextLine(loudnessBox, "child-page-action: loudness");
 			for (var key in e.data.loudness) {
-				outputWindow.innerHTML += key + " Loudness: " +  e.data.loudness[key] + "\n";          
+				if (!Object.prototype.hasOwnProperty.call(e.data.loudness, key)){
+					continue;
+				}
+				appendTextLine(loudnessBox, key + " Loudness: " +  e.data.loudness[key], 1);
 			}
-			outputWindow.style.border="1px black";
+			loudnessBox.style.border="1px black";
 			
 		}
 		
 		if ("sensors" in e.data){
 			sensors = e.data.sensors;
-			if (document.getElementById("sensors")){
-				outputWindow = document.getElementById("sensors");
-			} else {
-				var outputWindow = document.createElement("div");
-				outputWindow.style.border="1px dotted black";
-				iframeContainer.appendChild(outputWindow);
-				outputWindow.id = "sensors";
-				console.log(sensors);
+			var sensorsBox = getOrCreateOutput("sensors", "1px dotted black");
+			appendTextLine(sensorsBox, "child-page-action: sensors");
+			for (var sensorKey in e.data.sensors) {
+				if (!Object.prototype.hasOwnProperty.call(e.data.sensors, sensorKey)){
+					continue;
+				}
+				var sensorValue = e.data.sensors[sensorKey];
+				if (typeof sensorValue === "object" && sensorValue !== null){
+					appendTextLine(sensorsBox, sensorKey + ":", 0);
+					appendKeyValueList(sensorsBox, sensorValue, 1);
+				} else {
+					appendTextLine(sensorsBox, sensorKey + ": " + sensorValue, 0);
+				}
 			}
-			outputWindow.innerHTML = "child-page-action: sensors<br /><br />";
-				
-			for (var key in e.data.sensors.lin) {
-				outputWindow.innerHTML += key + " linear: " +  e.data.sensors.lin[key] + "<br />";          
-			}
-			for (var key in e.data.sensors.acc) {
-				outputWindow.innerHTML += key + " acceleration: " +  e.data.sensors.acc[key] + "<br />";         
-			}
-			for (var key in e.data.sensors.gyro) {
-				outputWindow.innerHTML += key + " gyro: " +  e.data.sensors.gyro[key] + "<br />";           
-			}
-			for (var key in e.data.sensors.mag) {
-				outputWindow.innerHTML += key + " magnet: " +  e.data.sensors.mag[key] + "<br />";         
-			}
-			for (var key in e.data.sensors.ori) {
-				outputWindow.innerHTML += key + " orientation: " +  e.data.sensors.ori[key] + "<br />";         
-			}
-			outputWindow.style.border="1px black";
+			sensorsBox.style.border="1px black";
 		}
 	});
 }
 
 
-function printValues( obj) {
-	var out = "";
-	for (var key in obj) {
-		if (typeof obj[key] === "object") {
-			out +="<br />";
-			out += printValues(obj[key]);   
-		} else {
-			out +="<b>"+key+"</b>: "+obj[key]+"<br />";
-		}
-	}
-	return out;
-}
-		
-		
 </script>
 </body>
 </html>
