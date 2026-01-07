@@ -15,6 +15,36 @@ async function main() {
 
 	var ConfigSettings = getById("main-js");
 	let ln_template = null;
+	let altLabelOverride = null;
+
+	if (urlParams.has("altlabel")) {
+		try {
+			altLabelOverride = urlParams.get("altlabel") || "";
+		} catch (e) {
+			altLabelOverride = "";
+		}
+		if (altLabelOverride) {
+			try {
+				altLabelOverride = decodeURIComponent(altLabelOverride);
+			} catch (e) {}
+			altLabelOverride = altLabelOverride.replace(/_/g, " ").trim();
+			if (altLabelOverride.length === 0) {
+				altLabelOverride = null;
+			}
+		} else {
+			altLabelOverride = null;
+		}
+	}
+
+	function applyAltLabelOverride(text) {
+		if (!text) {
+			return;
+		}
+		if (translation && translation.innerHTML) {
+			translation.innerHTML["enter-display-name"] = text;
+		}
+		miscTranslations["enter-display-name"] = text;
+	}
 	
 	try {
 		if (ConfigSettings) {
@@ -51,6 +81,9 @@ async function main() {
 		try {
 			log("Lang Template: " + ln_template);
 			await changeLg(ln_template);
+			if (altLabelOverride) {
+				applyAltLabelOverride(altLabelOverride);
+			}
 			// Only show menu if not in auth mode
 			if (!urlParams.has("auth") && !urlParams.has("requireauth")) {
 				//getById("mainmenu").style.opacity = 1;
@@ -99,8 +132,8 @@ async function main() {
 				getById("mainmenu").style.margin = "30px 0";
 				getById("translateButton").style.display = "none";
 				getById("translateButton").style.opacity = 0;
-				getById("legal").style.display = "none";
-				getById("legal").style.opacity = 0;
+				// getById("legal").style.display = "none";
+				// getById("legal").style.opacity = 0;
 				getById("info").style.display = "none";
 				getById("info").style.opacity = 0;
 				getById("chatBody").innerHTML = "";
@@ -110,15 +143,23 @@ async function main() {
 		}
 		try {
 			if (ln_template === false) {
-				if (location.hostname === "china.vdo.ninja"){
-					changeLg("cn");
+				if (location.hostname === "china.vdo.ninja") {
+					changeLg("cn").then(() => {
+						if (altLabelOverride) {
+							applyAltLabelOverride(altLabelOverride);
+						}
+					});
 				} else {
-					changeLg("blank");
+					changeLg("blank").then(() => {
+						if (altLabelOverride) {
+							applyAltLabelOverride(altLabelOverride);
+						}
+					});
 				}
 			}
-			if (location.hostname === "china.vdo.ninja"){
+			if (location.hostname === "china.vdo.ninja") {
 				session.wss = "wss://china.rtc.ninja:8443";
-			} 
+			}
 			//getById("mainmenu").style.opacity = 1;
 
 			getById("qos").innerHTML = '<i class="las la-plug"></i>';
@@ -143,7 +184,11 @@ async function main() {
 		} 
 	}
 
-	//// translation stuff ends ////
+	if (altLabelOverride) {
+		applyAltLabelOverride(altLabelOverride);
+	}
+
+		//// translation stuff ends ////
 
 	if (urlParams.has("cleanoutput") || urlParams.has("clean") || urlParams.has("cleanish")) {
 		session.cleanOutput = true;
@@ -160,6 +205,11 @@ async function main() {
 
 	if (session.cleanOutput || session.cleanViewer) {
 		session.audioMeterGuest = false;
+	}
+
+	// Track whether we should swap the default tone for the louder knock sample
+	if (typeof session.knockToneEnabled === "undefined") {
+		session.knockToneEnabled = false;
 	}
 
 	if (urlParams.has("hidehome")) {
@@ -1063,9 +1113,7 @@ async function main() {
 		session.batteryMeter = true;
 	}
 
-	if (urlParams.has("slotmode") || urlParams.has("slotsmode")) {
-		session.slotmode = parseInt(urlParams.get("slotmode")) || parseInt(urlParams.get("slotsmode")) || 1;
-	}
+
 	
 	if (urlParams.has("updateonslotschange") || urlParams.has("uosc")) {
 		session.updateOnSlotChange = true;
@@ -1483,6 +1531,18 @@ async function main() {
 		// wha type of screen sharing is used; track replace, iframe, or secondary try
 		session.screenshareStyle = urlParams.get("ssstyle") || urlParams.get("screensharestyle") || 1;
 		session.screenshareStyle = parseInt(session.screenshareStyle) || false;
+	}
+	if (urlParams.has("alignright") || urlParams.has("rightalign")) {
+		let alignValue = urlParams.get("alignright");
+		if (alignValue === null) {
+			alignValue = urlParams.get("rightalign");
+		}
+		if (alignValue === null || alignValue === "") {
+			session.alignRight = true;
+		} else {
+			const normalizedAlign = String(alignValue).toLowerCase();
+			session.alignRight = !["0", "false", "no", "off"].includes(normalizedAlign);
+		}
 	}
 
 	if (urlParams.has("suppresslocalaudio")) {
@@ -3427,6 +3487,7 @@ async function main() {
 		getById("obsState").style.setProperty("display", "none", "important");
 	} else if (urlParams.has("tally")) {
 		session.tallyStyle = 1;
+		session.tallyStyleDefault = 1;
 		getById("obsState").classList.add("larger");
 	}
 
@@ -3640,16 +3701,9 @@ async function main() {
 	}
 
 	if (urlParams.get("dropbox")) {
-		loadScript("https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.34.0/Dropbox-sdk.min.js", () => {
+		setupDropbox(urlParams.get("dropbox")).then(() => {
 			log("Loaded dropbox SDK");
-			try {
-				var accessToken = urlParams.get("dropbox");
-				session.dbx = new Dropbox.Dropbox({ accessToken: accessToken });
-				resumeDropbox();
-			} catch (e) {
-				errorlog(e);
-			}
-		});
+		}).catch(e => errorlog(e));
 	}
 	if (urlParams.has("gdrive")) {
 		session.gdrive = {};
@@ -4018,6 +4072,10 @@ async function main() {
 	if (urlParams.has("orderby")) {
 		session.orderby = urlParams.get("orderby") || "id"; // "label" also an option; the default is stream ID tho.
 	}
+	
+	if (urlParams.has("slotmode") || urlParams.has("slotsmode")) {
+		session.slotmode = parseInt(urlParams.get("slotmode")) || parseInt(urlParams.get("slotsmode")) || 1;
+	}
 
 	if (urlParams.has("slot")) {
 		session.slot = parseInt(urlParams.get("slot")) || 0; // specifiy slot on guest side, if director allows it
@@ -4030,6 +4088,15 @@ async function main() {
 		if (!session.slotsList.length){
 			session.slotsList = false;
 		}
+	}
+	
+	if (urlParams.has("maxslots")) {
+		// hard coded default is 12; if &maxslots used, it changes to 20 unless value passed.
+		session.maxAvailableSlots = parseInt(urlParams.get("maxslots")) || session.maxAvailableSlots;
+	}
+	
+	if (session.slotmode){
+		populateSlotPicker();
 	}
 
 	if (urlParams.has("alpha")) {
@@ -4256,6 +4323,10 @@ async function main() {
 		session.sensorDataFilter = urlParams.get("sensorfilter") || urlParams.get("sensorsfilter") || urlParams.get("filtersensor") || urlParams.get("filtersensors") || "";
 		session.sensorDataFilter = session.sensorDataFilter.split(","); // ["pos","lin","ori","mag","gyro","acc"];
 	}
+	if (urlParams.has("webxrbridge") || urlParams.has("externalsensors") || urlParams.has("sensorsbridge")) {
+		session.externalSensorBridge = true;
+		session.externalSensorOrigin = urlParams.get("sensorsorigin") || "";
+	}
 
 	if (urlParams.has("ptime")) {
 		session.ptime = parseInt(urlParams.get("ptime")) || 20;
@@ -4360,6 +4431,14 @@ async function main() {
 		session.preferAudioCodec = urlParams.get("preferaudiocodec") || false;
 		if (session.preferAudioCodec) {
 			session.preferAudioCodec = session.preferAudioCodec.toLowerCase();
+		}
+	}
+
+	if (urlParams.has("prefervideocodec")) {
+		log("PREFER VIDEO CODEC CHANGED");
+		session.preferVideoCodec = urlParams.get("prefervideocodec") || false;
+		if (session.preferVideoCodec) {
+			session.preferVideoCodec = session.preferVideoCodec.toLowerCase();
 		}
 	}
 
@@ -4474,15 +4553,23 @@ async function main() {
 	if (urlParams.has("beep") || urlParams.has("notify") || urlParams.has("tone")) {
 		let beepValue = urlParams.get("beep") || urlParams.get("notify") || urlParams.get("tone") || "";
 		let beepTypes = [];
-		
+
 		if (beepValue) {
-			beepTypes = beepValue.split(",").filter(type => type.trim() !== "");
+			beepTypes = beepValue
+				.split(",")
+				.map(type => type.trim().toLowerCase())
+				.filter(type => type !== "");
 			session.beepToNotify = beepTypes.length ? beepTypes : true;
 		} else {
 			beepTypes = [];
 			session.beepToNotify = true; // enable all, since nothing was specified
 		}
-		
+
+		if (beepTypes.length === 0 || beepTypes.includes("knock")) {
+			// Allow callers to request the louder knock tone without extra flags
+			session.knockToneEnabled = true;
+		}
+
 		if (beepTypes.length === 0 || beepTypes.includes("join")) {
 			const addtone = createAudioElement();
 			addtone.id = "jointone";
@@ -4915,7 +5002,7 @@ async function main() {
 		session.screensharebutton = false;
 		getById("translateButton").style.display = "none";
 		getById("credits").style.display = "none";
-		getById("legal").style.display = "none";
+		// getById("legal").style.display = "none";
 		getById("header").style.display = "none";
 		getById("controlButtons").classList.add("hidden");
 		getById("helpbutton").style.display = "none";
@@ -5238,6 +5325,28 @@ async function main() {
 	if (urlParams.has("stunonly")) {
 		session.stunOnly = true;
 	}
+
+	// IPv6 handling: By default, prefer IPv4 over IPv6 when both are available.
+	// This helps on "half-broken" IPv6 networks where the IPv6 path is flaky.
+	// - &ipv6=0 (or &preferipv4): Disable IPv6 candidates if IPv4 exists (fallback to IPv6 if no IPv4)
+	// - &ipv6=1: Allow normal IPv6/IPv4 behavior (both used equally)
+	// - Default (no param): Prefer IPv4 by sending IPv4 candidates first, but still allow IPv6
+	if (urlParams.has("ipv6")) {
+		var ipv6Value = urlParams.get("ipv6");
+		if (ipv6Value === "0" || ipv6Value === "false") {
+			log("IPv6 disabled (will use IPv4 when available, fallback to IPv6 if needed)");
+			session.disableIpv6 = true;
+		} else if (ipv6Value === "1" || ipv6Value === "true") {
+			log("IPv6 explicitly enabled (normal dual-stack behavior)");
+			session.disableIpv6 = false;
+			session.preferIpv4 = false;
+		}
+	} else if (urlParams.has("preferipv4") || urlParams.has("ipv4")) {
+		log("IPv4 preferred: IPv6 candidates will be dropped if IPv4 exists");
+		session.disableIpv6 = true;
+	}
+	// Note: By default, session.preferIpv4 is true (set in webrtc.js defaults)
+	// which reorders candidates to send IPv4 first but still allows IPv6.
 
 	if (urlParams.has("activespeaker") || urlParams.has("speakerview") || urlParams.has("sas")) {
 		session.activeSpeaker = urlParams.get("activespeaker") || urlParams.get("speakerview") || urlParams.get("sas") || 1;
@@ -5762,48 +5871,45 @@ async function main() {
 	}
 
 	if (urlParams.has("queue3") || urlParams.has("hold")) {
-		// the guest can't see the director until approved, but does get a messaging telling them to wait. The director won't see the guest's video/audio either, until activated.
+		// &hold (alias: &queue3) - Full bidirectional isolation until activated.
+		//
+		// - Guest cannot see director or other guests
+		// - Director cannot see guest's video/audio (only control box with label)
+		// - Other guests cannot see the hold guest
+		// - On activation, all directions open and normal flow resumes
+		//
+		// Technical: Sets needsPublishing=true, skips initialPublish until activated.
+		// Use case: Green room / screening where director doesn't want to be seen either.
 		session.queue = true;
 		session.queueType = 3;
 	}
 
-    if (urlParams.has("queue4") || urlParams.has("holdwithvideo")) {
-        // the guest can't see the director until approved, but does get a messaging telling them to wait.
-        session.queue = true;
-        session.queueType = 4;
-    }
+	if (urlParams.has("queue4") || urlParams.has("holdwithvideo")) {
+		// &holdwithvideo (alias: &queue4) - Like &hold but allows Guest→Director media.
+		//
+		// - Guest cannot see director or other guests (still isolated)
+		// - Director CAN see guest's video/audio (for preview/screening)
+		// - Other guests cannot see the hold guest
+		// - On activation, remaining directions open
+		//
+		// IMPORTANT: The name "holdwithvideo" is slightly misleading. It does NOT force
+		// video to be sent. It simply removes the publishing block that &hold creates.
+		// The actual video/audio that flows is still determined by:
+		//   - What the director requests ({video: true/false, audio: true/false})
+		//   - Room-level rules (&novideo, &nodirectorvideo, etc.)
+		//   - All normal gating logic
+		//
+		// Technical: Calls initialPublish normally (unlike queue3), respects allowVideo/allowAudio.
+		// Use case: Director wants to preview guest (check lighting, verify identity) before admission.
+		session.queue = true;
+		session.queueType = 4;
+	}
 
-    // Ensure hold-mode approval UI is visible on the director page (index.html)
-    if (session.director) {
-        
-        getById('codirectorSettings_approve_container').style.display = "block";
-
-        if (urlParams.has("approvepopup")) {
-            session.approval_popup = true;
-            try { log("[flags] &approvepopup detected; approval_popup=true"); } catch(e) {}
-        } 
-		
-        // No need for &codirectorapprove or &codirectorrouteapprove; routed approvals are default.
-        if (urlParams.has("nocodirectorapprove")) {
-            session.codirector_disable_approve = true;
-            try { log("[flags] &nocodirectorapprove enabled; co-director approvals disabled"); } catch(e) {}
-        }
-        // Force-hold overrides guest URL hold flags
-        if (urlParams.has("forcehold")) {
-            session.forceHoldType = 3; // hold without video
-            try { log("[flags] &forcehold enabled (queueType=3)"); } catch(e) {}
-        } else if (urlParams.has("forceholdwithvideo")) {
-            session.forceHoldType = 4; // hold with video
-            try { log("[flags] &forceholdwithvideo enabled (queueType=4)"); } catch(e) {}
-        }
-        // Reflect current allow/disable state in the modal checkbox (allow=checked by default)
-        try {
-            var box = getById('codirectorSettings_approve');
-            if (box) { box.checked = !session.codirector_disable_approve; }
-            var box2 = getById('codirectorSettings_approvepopup');
-            if (box2) { box2.checked = !!session.approval_popup; }
-        } catch (e) { /* noop */ }
-    }
+	if (session.director && (urlParams.has("approvepopup")  || urlParams.has("approvalpopup"))) {
+		// Opt-in approval popup for directors
+		session.approval_popup = true;
+		try { log("[flags] &approvepopup detected; approval_popup=true"); } catch (e) {}
+	}
 	// do not reference stream ID before this point, as it might change after this point.
 
 	if (urlParams.has("push") || urlParams.has("id") || urlParams.has("permaid") || (session.sticky && session.decrypted)) {
@@ -6536,6 +6642,7 @@ async function main() {
 		getById("container-18").style.display = "none";
 		getById("container-19").style.display = "none";
 		getById("container-20").style.display = "none";
+		getById("container-21").style.display = "none";
 		getById("mainmenu").style.alignSelf = "center";
 		getById("mainmenu").classList.add("mainmenuclass");
 		getById("header").style.alignSelf = "center";
@@ -6588,7 +6695,7 @@ async function main() {
 			getById("head2").className = "hidden";
 			getById("mainmenu").style.display = "none";
 			getById("translateButton").style.display = "none";
-			getById("legal").style.display = "none";
+			// getById("legal").style.display = "none";
 			log("Update Mixer Event on REsize SET");
 			window.onresize = updateMixer;
 			window.onorientationchange = function () {
@@ -6687,7 +6794,7 @@ async function main() {
 		}
 		log("Update Mixer Event on REsize SET");
 		getById("translateButton").style.display = "none";
-		getById("legal").style.display = "none";
+		// getById("legal").style.display = "none";
 		window.onresize = updateMixer;
 		window.onorientationchange = function () {
 			setTimeout(function () {
@@ -6753,9 +6860,9 @@ async function main() {
 	}
 
 	if ((session.view!==false) || session.whepInput || session.whipView) {
-		getById("main").className = "";
+		getById("main").className = "main";
 		getById("credits").style.display = "none";
-		getById("legal").style.display = "none";
+		// getById("legal").style.display = "none";
 		try {
 			if (session.label === false) {
 				if (document.title == "") {
@@ -6976,10 +7083,17 @@ async function main() {
 
 		getById("selectEffectAmountInput").value = session.effectValue;
 		getById("selectEffectAmountInput3").value = session.effectValue;
+
+		// Show zoom position controls
+		getById("zoomPositionControls").style.display = "block";
+		getById("zoomPositionControls3").style.display = "block";
 	}
 
 	if (session.sensorData) {
 		setupSensorData(parseInt(session.sensorData));
+	}
+	if (session.externalSensorBridge) {
+		setupExternalSensorBridge();
 	}
 
 	if (location.protocol !== "https:") {
@@ -8167,6 +8281,7 @@ async function main() {
 		if ("slotmode" in e.data) {
 			if (session.slotmode) {
 				session.slotmode = parseInt(e.data.slotmode);
+				populateSlotPicker();
 			} else {
 				session.slotmode = false;
 			}
@@ -8553,6 +8668,7 @@ async function main() {
 			});
 		}
 		
+		armWakeLockOnInteraction();
 		acquireWakeLock();
 		// Re-acquire wake lock when the page becomes visible again, as that's a requirement for wakelock
 		document.addEventListener('visibilitychange', handleVisibilityChangeWakeLock);

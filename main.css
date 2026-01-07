@@ -866,6 +866,15 @@ button.hint {
 	position: relative;	
 }
 @media only screen and (max-width: 1023px){
+	#credits {
+		position: static;
+		right: auto;
+		bottom: auto;
+		margin: 24px 0 16px;
+		padding: 0 16px;
+		text-align: center;
+		width: 100%;
+	}
 	#legal {
 		display:none;
 	}
@@ -1215,36 +1224,6 @@ hr {
 [data-slot='0'] {
 	background: linear-gradient(145deg, #dadada, #b8b8b8);
 }
-[data-slot='1'] {
-	background-color: #00AAAA
-}
-[data-slot='2'] {
-	background-color: #FF0000
-}
-[data-slot='3'] {
-	background-color: #0000FF
-}
-[data-slot='4'] {
-	background-color: #AA00AA
-}
-[data-slot='5'] {
-	background-color: #00FF00
-}
-[data-slot='6'] {
-	background-color: #AAAA00
-}
-[data-slot='7'] {
-	background-color: #AACC44
-}
-[data-slot='8'] {
-	background-color: #CCAA44
-}
-[data-slot='9'] {
-	background-color: #CC44AA
-}
-[data-slot='10'] {
-	background-color: #44AACC
-}
 #slotpicker{
 	box-shadow: 0 0 1px #908080;
 	width: 180px;
@@ -1273,6 +1252,14 @@ hr {
 	margin: 2px;
 	cursor: pointer;
 	text-shadow: 0px 0px 10px white;
+}
+#alertModalMessage{
+	display: block;
+	max-height: 70vh;
+	overflow-y: auto;
+}
+.alertModal--anchored{
+	transform: none !important;
 }
 .rem-con-count{
 	position: absolute;
@@ -1441,6 +1428,35 @@ hr {
 	width: 23px;
 	height: 23px;
 	margin: 0;
+}
+
+/* Highlight the queue controls whenever guests are waiting */
+#queuebutton.queueAttention {
+	box-shadow: 0 0 0 2px rgba(255, 120, 120, 0.35);
+	border-radius: 8px;
+}
+
+#queuebutton.queueAttention i {
+	color: #ff7b7b;
+}
+
+.queueNotification.queueNotificationPulse {
+	animation: queuePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes queuePulse {
+	0% {
+		transform: scale(1);
+		background: #335c3a;
+	}
+	50% {
+		transform: scale(1.08);
+		background: #ff7b7b;
+	}
+	100% {
+		transform: scale(1);
+		background: #335c3a;
+	}
 }
 
 button.glyphicon-button:focus,
@@ -4859,9 +4875,11 @@ a#reshare {
 	-webkit-appearance: slider-vertical;
 	background-color: #262c3e;
 	cursor: pointer;
-	width: 13px;
-	margin: 3px 0;
+	width: 17px;
+	margin: 0px 1px 4px 0;
+	padding: 0;
 }
+
 #closedList_connectUsers{
 
 	cursor: pointer;
@@ -6907,7 +6925,7 @@ a.grabLinks:visited {
 }
 .darktheme a.grabLinks:link,
 .darktheme a.grabLinks:visited {
-    color: var(--a-dark-link) !important;
+    color: var(--a-dark-link);
     text-shadow: 0 1px 0 rgba(0,0,0,0.6);
 }
 a.grabLinks:hover,
@@ -7119,7 +7137,7 @@ div#chatBody a {
 .darktheme .tooltip .tooltiptext { background-color: rgba(34,37,44,0.95) !important; }
 
 /* 22) Sliders — theme-aware styling */
-input[type="range"] { -webkit-appearance: none; background: transparent; height: 24px; }
+input[type="range"] { -webkit-appearance: none; background: transparent; min-height: 24px; }
 input[type="range"]:focus { outline: none; }
 /* WebKit */
 input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: var(--lighttheme-4); border-radius: 999px; }
