@@ -6,6 +6,156 @@ function writeString(view, offset, string) {
   }
 }
 
+function padToEven(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return value % 2 === 0 ? value : value + 1;
+}
+
+function sanitiseMarkerLabel(label, fallback = 'Marker') {
+  if (!label) {
+    return fallback;
+  }
+  if (typeof label !== 'string') {
+    return fallback;
+  }
+  return label.replace(/\0/g, '').replace(/\r?\n/g, ' ').trim() || fallback;
+}
+
+function normaliseCueMarkers(markers, sampleRate, maxSampleOffset, trackStartOffsetSeconds = 0) {
+  if (!Array.isArray(markers) || !markers.length || !Number.isFinite(sampleRate) || sampleRate <= 0) {
+    return [];
+  }
+
+  const trackOffset = Number.isFinite(trackStartOffsetSeconds) ? Math.max(0, trackStartOffsetSeconds) : 0;
+
+  const cueMarkers = [];
+  for (let i = 0; i < markers.length; i += 1) {
+    const marker = markers[i];
+    if (!marker) {
+      continue;
+    }
+    const rawTimeSeconds =
+      marker.timeSeconds ??
+      marker.time ??
+      marker.seconds ??
+      marker.t ??
+      (typeof marker.timestamp === 'number' ? marker.timestamp : undefined);
+    if (!Number.isFinite(rawTimeSeconds)) {
+      continue;
+    }
+    // Adjust marker time relative to this track's start
+    const adjustedSeconds = rawTimeSeconds - trackOffset;
+    // Skip markers that occurred before this track started
+    if (adjustedSeconds < 0) {
+      continue;
+    }
+    let sampleOffset = Math.round(adjustedSeconds * sampleRate);
+    if (Number.isFinite(maxSampleOffset)) {
+      sampleOffset = Math.min(Math.max(0, sampleOffset), maxSampleOffset);
+    } else {
+      sampleOffset = Math.max(0, sampleOffset);
+    }
+    cueMarkers.push({
+      timeSeconds: rawTimeSeconds,
+      adjustedSeconds,
+      sampleOffset,
+      label: sanitiseMarkerLabel(marker.label, `Marker ${cueMarkers.length + 1}`),
+    });
+  }
+
+  cueMarkers.sort((a, b) => a.sampleOffset - b.sampleOffset);
+
+  return cueMarkers.map((marker, index) => ({
+    ...marker,
+    id: index + 1,
+  }));
+}
+
+function buildCueChunk(cueMarkers) {
+  if (!cueMarkers.length) {
+    return null;
+  }
+
+  const cuePointsSize = 4 + cueMarkers.length * 24;
+  const cueChunkSize = padToEven(cuePointsSize);
+  const buffer = new ArrayBuffer(8 + cueChunkSize);
+  const view = new DataView(buffer);
+
+  writeString(view, 0, 'cue ');
+  view.setUint32(4, cuePointsSize, true);
+  view.setUint32(8, cueMarkers.length, true);
+
+  let offset = 12;
+  cueMarkers.forEach((marker) => {
+    view.setUint32(offset, marker.id, true);
+    offset += 4;
+    view.setUint32(offset, marker.sampleOffset, true);
+    offset += 4;
+    writeString(view, offset, 'data');
+    offset += 4;
+    view.setUint32(offset, 0, true);
+    offset += 4;
+    view.setUint32(offset, 0, true);
+    offset += 4;
+    view.setUint32(offset, marker.sampleOffset, true);
+    offset += 4;
+  });
+
+  return new Uint8Array(buffer);
+}
+
+function buildAdtlListChunk(cueMarkers) {
+  if (!cueMarkers.length) {
+    return null;
+  }
+
+  const encoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+  if (!encoder) {
+    return null;
+  }
+
+  const labels = cueMarkers.map((marker) => {
+    const labelBytes = encoder.encode(sanitiseMarkerLabel(marker.label, `Marker ${marker.id}`));
+    const dataSize = 4 + labelBytes.length + 1;
+    return {
+      id: marker.id,
+      labelBytes,
+      dataSize,
+      paddedDataSize: padToEven(dataSize),
+    };
+  });
+
+  const listDataSize = 4 + labels.reduce((total, entry) => total + 8 + entry.paddedDataSize, 0);
+  const listChunkSize = padToEven(listDataSize);
+  const buffer = new ArrayBuffer(8 + listChunkSize);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+
+  writeString(view, 0, 'LIST');
+  view.setUint32(4, listDataSize, true);
+  writeString(view, 8, 'adtl');
+
+  let offset = 12;
+  labels.forEach((entry) => {
+    writeString(view, offset, 'labl');
+    offset += 4;
+    view.setUint32(offset, entry.dataSize, true);
+    offset += 4;
+    view.setUint32(offset, entry.id, true);
+    offset += 4;
+    bytes.set(entry.labelBytes, offset);
+    offset += entry.labelBytes.length;
+    bytes[offset] = 0;
+    offset += 1;
+    const padding = entry.paddedDataSize - entry.dataSize;
+    offset += padding;
+  });
+
+  return new Uint8Array(buffer);
+}
+
 function interleaveChannels(channelData) {
   if (!channelData.length) {
     return new Float32Array();
@@ -34,7 +184,7 @@ function floatTo16BitPCM(view, offset, input) {
   }
 }
 
-export function audioBufferToWav(audioBuffer, { float32 = false } = {}) {
+export function audioBufferToWav(audioBuffer, { float32 = false, markers = null, trackStartOffsetSeconds = 0 } = {}) {
   if (!audioBuffer) {
     throw new Error('audioBufferToWav expects an AudioBuffer.');
   }
@@ -48,28 +198,59 @@ export function audioBufferToWav(audioBuffer, { float32 = false } = {}) {
   const bytesPerSample = float32 ? 4 : 2;
   const format = float32 ? 3 : 1;
   const dataLength = interleaved.length * bytesPerSample;
-  const buffer = new ArrayBuffer(44 + dataLength);
+
+  const cueMarkers = normaliseCueMarkers(markers, sampleRate, audioBuffer.length ? Math.max(0, audioBuffer.length - 1) : 0, trackStartOffsetSeconds);
+  const cueChunk = buildCueChunk(cueMarkers);
+  const listChunk = buildAdtlListChunk(cueMarkers);
+
+  const riffHeaderSize = 12;
+  const fmtChunkTotal = 8 + 16;
+  const dataChunkTotal = 8 + padToEven(dataLength);
+  const cueChunkTotal = cueChunk ? cueChunk.length : 0;
+  const listChunkTotal = listChunk ? listChunk.length : 0;
+
+  const totalSize = riffHeaderSize + fmtChunkTotal + dataChunkTotal + cueChunkTotal + listChunkTotal;
+  const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
 
   writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + dataLength, true);
+  view.setUint32(4, totalSize - 8, true);
   writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, format, true);
-  view.setUint16(22, numberOfChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * numberOfChannels * bytesPerSample, true);
-  view.setUint16(32, numberOfChannels * bytesPerSample, true);
-  view.setUint16(34, bytesPerSample * 8, true);
-  writeString(view, 36, 'data');
-  view.setUint32(40, dataLength, true);
+
+  let offset = 12;
+
+  writeString(view, offset, 'fmt ');
+  view.setUint32(offset + 4, 16, true);
+  view.setUint16(offset + 8, format, true);
+  view.setUint16(offset + 10, numberOfChannels, true);
+  view.setUint32(offset + 12, sampleRate, true);
+  view.setUint32(offset + 16, sampleRate * numberOfChannels * bytesPerSample, true);
+  view.setUint16(offset + 20, numberOfChannels * bytesPerSample, true);
+  view.setUint16(offset + 22, bytesPerSample * 8, true);
+  offset += fmtChunkTotal;
+
+  writeString(view, offset, 'data');
+  view.setUint32(offset + 4, dataLength, true);
+  const dataOffset = offset + 8;
 
   if (float32) {
-    const floatView = new Float32Array(buffer, 44, interleaved.length);
+    const floatView = new Float32Array(buffer, dataOffset, interleaved.length);
     floatView.set(interleaved);
   } else {
-    floatTo16BitPCM(view, 44, interleaved);
+    floatTo16BitPCM(view, dataOffset, interleaved);
+  }
+
+  offset += 8 + padToEven(dataLength);
+
+  if (cueChunk) {
+    bytes.set(cueChunk, offset);
+    offset += cueChunk.length;
+  }
+
+  if (listChunk) {
+    bytes.set(listChunk, offset);
+    offset += listChunk.length;
   }
 
   return buffer;
@@ -94,7 +275,7 @@ async function resampleIfNeeded(audioBuffer, targetSampleRate) {
   return offline.startRendering();
 }
 
-export async function convertBlobToWav(blob, { sampleRate = DEFAULT_SAMPLE_RATE, float32 = false, audioContext = null } = {}) {
+export async function convertBlobToWav(blob, { sampleRate = DEFAULT_SAMPLE_RATE, float32 = false, markers = null, trackStartOffsetSeconds = 0, audioContext = null } = {}) {
   if (!blob) {
     throw new Error('convertBlobToWav expects a Blob.');
   }
@@ -135,6 +316,6 @@ export async function convertBlobToWav(blob, { sampleRate = DEFAULT_SAMPLE_RATE,
     console.warn('Failed to resample audio buffer, using original sample rate', error);
   }
 
-  const wavArrayBuffer = audioBufferToWav(processedBuffer, { float32 });
+  const wavArrayBuffer = audioBufferToWav(processedBuffer, { float32, markers, trackStartOffsetSeconds });
   return new Blob([wavArrayBuffer], { type: 'audio/wav' });
 }

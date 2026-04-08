@@ -519,10 +519,23 @@
 	}
 
 	.widget {
-		background-color: #DDD;
+		background-color: #0003;
 		position: absolute;
 		width:100%;
 		height:100%;
+	}
+	.crop-target {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		z-index: 0;
+	}
+	.widget > *:not(.crop-target) {
+		position: relative;
+		z-index: 1;
 	}
 	#canvas{
 		background-color: #000;
@@ -674,7 +687,7 @@
 	  color: var(--text-color);
 	  border: none;
 	  border-radius: var(--border-radius);
-	  padding: 7px 10px;
+	  padding: 7px 9px;
 	  margin: 4px;
 	  cursor: pointer;
 	  font-weight: 500;
@@ -1274,7 +1287,7 @@
 			<button onclick="saveScene(false, event);">💾 Save Layout</button>
 			<button onclick="saveScene(true, event);">💾<span style="position:relative;right:12px;top:2px;width:12px;display: inline-block;">💾</span>Duplicate Layout</button>
 			<button onclick="setobsSceneName();" title="When this layout is triggered, OBS will change to the specified scene as well">Link OBS Scene</button>
-			<button onclick="copyJSON();" title="This can be used with &format directly in VDO.Ninja without the mixer app. Requires a guest being active.">Show as JSON</button>
+			<button onclick="copyJSON();" title="This can be used with &format directly in VDO.Ninja without the mixer app. Requires a guest being active.">🔗 Layout URL</button>
 			<button onclick="removeScene();">🗑️ Remove Layout</button>
 			<button id="saveAndClose" onclick="saveScene(false, event);closeScene();">💾❌ Save and Close</button>
 			<button onclick="closeScene();">❌ Close Layout Maker</button>
@@ -1738,9 +1751,24 @@
 				}
 				return extras;
 			}
+		},
+		"record": {
+			label: "Record to Disk",
+			requiresValue: false,
+			showToken: true,
+			tokenLabel: "Bitrate in kbps (optional)",
+			tokenPlaceholder: "6000",
+			help: "Record the scene directly to your local disk. Click the record button in the opened window to start/stop.",
+			buildExtras: function(opts){
+				var extras = "&recordwindow";
+				if (opts && opts.token && parseInt(opts.token)){
+					extras += "="+parseInt(opts.token);
+				}
+				return extras;
+			}
 		}
 	};
-	var sceneBroadcastProfileOrder = ["standard","meshcast","mediamtx","cloudflare","custom"];
+	var sceneBroadcastProfileOrder = ["standard","meshcast","mediamtx","cloudflare","custom","record"];
 	
 	
 	var aspectRatio = 16/9.0;
@@ -3358,6 +3386,7 @@
 		var button = document.createElement("button");
 		button.innerHTML = "Publish to Twitch";
 		button.id = "publishTwitch";
+		button.classList.add("menuButton");
 		button.onclick = function(){
 			var URL = window.location.href.split("/");
 			URL.pop();
@@ -3369,7 +3398,23 @@
 			win.resizeTo(1280,720);
 		};
 		document.getElementById("sources").appendChild(button);
-		
+
+		var recordButton = document.createElement("button");
+		recordButton.innerHTML = "Record Scene";
+		recordButton.id = "recordScene";
+		recordButton.classList.add("menuButton");
+		recordButton.onclick = function(){
+			var URL = window.location.href.split("/");
+			URL.pop();
+			URL = URL.join("/");
+			URL+="/?scene=0&layout&remote&room="+roomname+additional;
+			URL+="&chroma=000&recordwindow&screenshareaspectratio="+aspectRatio+"&locked="+aspectRatio;
+			var win = window.open( URL ,'recordWindow', 'toolbar=no,location=no,status=no,scaling=no,menubar=no,scrollbars=no,resizable=no,width=1280,height=720');
+			win.focus();
+			win.resizeTo(1280,720);
+		};
+		document.getElementById("sources").appendChild(recordButton);
+
 		var sceneBroadcastButton = document.createElement("button");
 		sceneBroadcastButton.innerHTML = "Scene Output Options";
 		sceneBroadcastButton.classList.add("menuButton");
@@ -4063,6 +4108,10 @@
 		ctx.fill();
 		
 		var highestSlot = 0;
+		var baseWidth = (pixelDensity * 16 / 9) * (aspectRatio / (16 / 9));
+		var baseHeight = pixelDensity;
+		var cropScaleX = baseWidth ? (80 / baseWidth) : 0;
+		var cropScaleY = baseHeight ? (45 / baseHeight) : 0;
 		for (var i=0;i<layout.length;i++){
 			var slotForColor = parseInt(layout[i].slot);
 			if (!isFinite(slotForColor)){
@@ -4075,6 +4124,26 @@
 			var y = layout[i].y*0.45 || parseFloat(100*layout[i].yp/(pixelDensity*16/9)*0.8) ||  0;
 			var w = layout[i].w*0.8 || parseFloat(100*layout[i].wp/(pixelDensity*16/9)*0.8) ||  0;
 			var h = layout[i].h*0.45 || parseFloat(100*layout[i].hp/(pixelDensity*16/9)*0.8) ||  0;
+			var cropLeft = parseInt(layout[i].cropLeft) || 0;
+			var cropRight = parseInt(layout[i].cropRight) || 0;
+			var cropTop = parseInt(layout[i].cropTop) || 0;
+			var cropBottom = parseInt(layout[i].cropBottom) || 0;
+			if (cropLeft || cropRight || cropTop || cropBottom) {
+				var cropLeftScaled = cropLeft * cropScaleX;
+				var cropRightScaled = cropRight * cropScaleX;
+				var cropTopScaled = cropTop * cropScaleY;
+				var cropBottomScaled = cropBottom * cropScaleY;
+				x += cropLeftScaled;
+				y += cropTopScaled;
+				w -= cropLeftScaled + cropRightScaled;
+				h -= cropTopScaled + cropBottomScaled;
+				if (w < 0) {
+					w = 0;
+				}
+				if (h < 0) {
+					h = 0;
+				}
+			}
 			
 			ctx.beginPath();
 			ctx.rect(x, y, w, h);
@@ -4485,7 +4554,11 @@
 			container.margin = object[i].margin || 0;
 			container.muted = object[i].muted || false;
 			container.rounded = object[i].rounded || 0;
-			
+			container.cropTop = object[i].cropTop || 0;
+			container.cropRight = object[i].cropRight || 0;
+			container.cropBottom = object[i].cropBottom || 0;
+			container.cropLeft = object[i].cropLeft || 0;
+
 			var hh = pixelDensity;
 			var ww = (pixelDensity*16/9) * (aspectRatio/(16/9));
 			
@@ -4495,7 +4568,7 @@
 			var h = object[i].h*hh/100 || object[i].hp || 0;
 			
 			containerSuper.style = "z-index:"+container.zIndex+";position: absolute;left:"+xoffset+"px;top:"+yoffset+"px;width:"+w+"px;height:"+h+"px;";
-			container.style = "background-color:"+color+";";
+			ensureCropTarget(container).style.backgroundColor = color;
 			updateElementStyle(container);
 			
 			
@@ -4605,7 +4678,7 @@
 		var h = 360;
 		
 		containerSuper.style = "z-index:"+container.zIndex+";position: absolute;left:"+xoffset+"px;top:"+yoffset+"px;width:"+w+"px;height:"+h+"px;";
-		container.style = "background-color:"+color+";";
+		ensureCropTarget(container).style.backgroundColor = color;
 		
 		
 		var h3 = document.createElement("h3");
@@ -4660,6 +4733,16 @@
 		requestFramesBySlot();
     }
 	
+	function ensureCropTarget(container) {
+		if (!container.cropTarget) {
+			var cropTarget = document.createElement("div");
+			cropTarget.className = "crop-target";
+			container.insertBefore(cropTarget, container.firstChild);
+			container.cropTarget = cropTarget;
+		}
+		return container.cropTarget;
+	}
+	
 	function updateElementStyle(container) {
 		
 		if (container.text) {
@@ -4707,6 +4790,9 @@
 			rounded = 0;
 		}
 
+		var cropTarget = ensureCropTarget(container);
+		var hasCrop = container.cropTop || container.cropRight || container.cropBottom || container.cropLeft;
+
 		// Apply the additional style properties
 		if (margin) {
 			container.style.margin = margin + "px";
@@ -4715,18 +4801,32 @@
 		}
 
 		if (borderThickness) {
-			container.style.border = borderThickness + "px solid " + borderColor;
+			cropTarget.style.border = borderThickness + "px solid " + borderColor;
 		} else {
-			container.style.border = "none";
+			cropTarget.style.border = "none";
 		}
 
 		if (rounded) {
-			container.style.borderRadius = rounded + "px";
+			cropTarget.style.borderRadius = rounded + "px";
 		} else {
-			container.style.borderRadius = "";
+			cropTarget.style.borderRadius = "";
 		}
 
-		container.style.boxSizing = "border-box";
+		// Apply crop via clip-path
+		if (hasCrop) {
+			var cropTop = parseInt(container.cropTop) || 0;
+			var cropRight = parseInt(container.cropRight) || 0;
+			var cropBottom = parseInt(container.cropBottom) || 0;
+			var cropLeft = parseInt(container.cropLeft) || 0;
+			cropTarget.style.clipPath = `inset(${cropTop}px ${cropRight}px ${cropBottom}px ${cropLeft}px)`;
+		} else {
+			cropTarget.style.clipPath = "";
+		}
+
+		container.style.outline = hasCrop ? "1px dashed rgba(255, 255, 255, 0.6)" : "";
+		container.style.border = "none";
+		container.style.borderRadius = "";
+		cropTarget.style.boxSizing = "border-box";
 	}
 	
 	function getSceneBroadcastProfile(){
@@ -5248,7 +5348,24 @@ function settings() {
           </div>
         </div>
       </div>
-      
+
+	  <div class="settings-section">
+		<h3>Crop</h3>
+		<div class="settings-row">
+		  <div class="settings-label">Crop (px)</div>
+		  <div class="settings-field">
+			<label for="cropTop">T</label>
+			<input id="cropTop" type="number" min="0" style="width: 55px;">
+			<label for="cropRight" style="margin-left: 8px;">R</label>
+			<input id="cropRight" type="number" min="0" style="width: 55px;">
+			<label for="cropBottom" style="margin-left: 8px;">B</label>
+			<input id="cropBottom" type="number" min="0" style="width: 55px;">
+			<label for="cropLeft" style="margin-left: 8px;">L</label>
+			<input id="cropLeft" type="number" min="0" style="width: 55px;">
+		  </div>
+		</div>
+	  </div>
+
       <div class="settings-section">
         <h3>Media Options</h3>
         <div class="settings-row">
@@ -5376,7 +5493,13 @@ function settings() {
   setEle.querySelector('#colorValue').value = parent.borderColor || '#0000';
   setEle.querySelector('#colorPicker').value = parent.borderColor || '#0000';
   setEle.querySelector('#rounded').value = parent.rounded || 0;
-  
+
+	// Initialize crop values
+	setEle.querySelector('#cropTop').value = parent.cropTop || 0;
+	setEle.querySelector('#cropRight').value = parent.cropRight || 0;
+	setEle.querySelector('#cropBottom').value = parent.cropBottom || 0;
+	setEle.querySelector('#cropLeft').value = parent.cropLeft || 0;
+
   var coverCheck = setEle.querySelector('#coverMedia');
   if ("cover" in parent) {
     coverCheck.checked = parent.cover || false;
@@ -5531,7 +5654,15 @@ function settings() {
     parent.rounded = this.value;
     updateElementStyle(parent);
   };
-  
+
+	// Crop event handlers
+	['cropTop', 'cropRight', 'cropBottom', 'cropLeft'].forEach(function(id) {
+		setEle.querySelector('#' + id).onchange = function() {
+			parent[id] = parseInt(this.value) || 0;
+			updateElementStyle(parent);
+		};
+	});
+
   setEle.querySelector('#coverMedia').onchange = function() {
     parent.cover = this.checked;
   };
@@ -5727,6 +5858,10 @@ function settings() {
 				ele.defaultStreamID = eles[i].defaultStreamID || "";
 				ele.margin = parseInt(eles[i].margin) || 0;
 				ele.rounded = parseInt(eles[i].rounded) || 0;
+				ele.cropTop = parseInt(eles[i].cropTop) || 0;
+				ele.cropRight = parseInt(eles[i].cropRight) || 0;
+				ele.cropBottom = parseInt(eles[i].cropBottom) || 0;
+				ele.cropLeft = parseInt(eles[i].cropLeft) || 0;
 				ele.muted = eles[i].muted || false;
 			} catch(e){errorlog(e);}
 			layout.push(ele);
@@ -5750,8 +5885,9 @@ function settings() {
 		document.getElementById('urlEncodedExport').value = urlEncodedExport;
 		
 		const exportRoom = getExportRoomName();
-		const layoutUrl = "https://vdo.ninja/?layout=" + base64Version + "&scene&room=" + exportRoom;
-		const directorUrl = "https://vdo.ninja/?director=" + exportRoom + "&slotsmode";
+		var baseURL = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
+		const layoutUrl = baseURL + "/?layout=" + base64Version + "&scene&room=" + exportRoom;
+		const directorUrl = baseURL + "/?director=" + exportRoom + "&slotsmode";
 		document.getElementById('layoutUrlExport').value = layoutUrl;
 		document.getElementById('directorSlotsUrlExport').value = directorUrl;
 		
@@ -5895,8 +6031,12 @@ function settings() {
 				ele.defaultStreamID = eles[i].defaultStreamID || "";
 				ele.margin = parseInt(eles[i].margin) || 0;
 				ele.rounded = parseInt(eles[i].rounded) || 0;
+				ele.cropTop = parseInt(eles[i].cropTop) || 0;
+				ele.cropRight = parseInt(eles[i].cropRight) || 0;
+				ele.cropBottom = parseInt(eles[i].cropBottom) || 0;
+				ele.cropLeft = parseInt(eles[i].cropLeft) || 0;
 				ele.muted = eles[i].muted || false;
-				
+
 				ele.text = eles[i].text || "";
 				ele.textColor = eles[i].textColor || "#ffffff";
 				ele.fontSize = eles[i].fontSize || "24px";
@@ -6079,11 +6219,12 @@ function settings() {
 
 	function applyFrameToElement(element, frameData) {
 	  //var opacity = (element.frameOpacity || 30) / 100;
-	  element.style.backgroundImage = `url(${frameData})`;
-	  element.style.backgroundSize = element.cover ? 'cover' : 'contain';
-	  element.style.backgroundPosition = 'center';
-	  element.style.backgroundRepeat = 'no-repeat';
-	  element.style.backgroundBlendMode = 'luminosity';
+	  var cropTarget = ensureCropTarget(element);
+	  cropTarget.style.backgroundImage = `url(${frameData})`;
+	  cropTarget.style.backgroundSize = element.cover ? 'cover' : 'contain';
+	  cropTarget.style.backgroundPosition = 'center';
+	  cropTarget.style.backgroundRepeat = 'no-repeat';
+	  cropTarget.style.backgroundBlendMode = 'luminosity';
 	  
 	  updateElementStyle(element);
 	}

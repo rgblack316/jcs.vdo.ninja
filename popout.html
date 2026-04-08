@@ -51,7 +51,7 @@
 		overflow-y: auto;
 	}
 
-	.outMessage, .inMessage {
+	.outMessage, .inMessage, .tipMessage {
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
@@ -68,6 +68,15 @@
 	.inMessage {
 		color: var(--discord-text);
 		background-color: var(--discord-grey-7);
+	}
+
+	.tipMessage {
+		background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+		color: #1a1a1a;
+		text-align: center;
+		justify-content: center;
+		font-weight: 500;
+		border: 1px solid #e6a800;
 	}
 
 	.outMessage .chat_message {
@@ -526,6 +535,9 @@ function updateMessages(message = false){
 		} else if (message.type == "alert"){
 			msg.innerHTML = "<span class='chat_message chat_alert'>"+safeMessage + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 			msg.classList.add("inMessage");
+		} else if (message.type == "tip"){
+			msg.innerHTML = "<span class='chat_message chat_tip'>"+safeMessage + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
+			msg.classList.add("tipMessage");
 		} else {
 			msg.innerHTML = "<span class='chat_message chat_other'>"+safeMessage + "  </span><i><small> <small>- "+safeTime+"</small></small></i>";
 			msg.classList.add("inMessage");
@@ -557,6 +569,9 @@ function updateMessages(message = false){
 			} else if (messageList[i].type == "alert"){
 				msg.innerHTML = "<span class='chat_message chat_alert'>"+message + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("inMessage");
+			} else if (messageList[i].type == "tip"){
+				msg.innerHTML = "<span class='chat_message chat_tip'>"+message + " </span><i><small> <small>- "+safeTime+"</small></small></i>";
+				msg.classList.add("tipMessage");
 			} else {
 				msg.innerHTML = "<span class='chat_message chat_other'>"+message + "  </span><i><small> <small>- "+safeTime+"</small></small></i>";
 				msg.classList.add("inMessage");

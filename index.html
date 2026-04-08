@@ -15,6 +15,11 @@
 			}
 		
 		</script>
+		<script>
+			if (window.location.search.includes('podcast')) {
+				document.write('<style>#directorlayout,#controlButtons{display:none!important}</style>');
+			}
+		</script>
 		<style>
 			html {
 				background-color: #0000;
@@ -43,7 +48,7 @@
 		
 		<meta name="msapplication-TileColor" content="#da532c" />
 		<meta name="theme-color" content="#0f131d" />
-		<link rel="stylesheet" href="./main.css?ver=4025" />
+		<link rel="stylesheet" href="./main.css?ver=4040" />
 		<script type="text/javascript" crossorigin="anonymous" src="./thirdparty/adapter.js"></script>
 		
 		<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
@@ -86,7 +91,7 @@
 		</span>
 		<script type="text/javascript" crossorigin="anonymous"  src="./thirdparty/CodecsHandler.js?ver=29"></script>
 		<script type="text/javascript" crossorigin="anonymous" src="./thirdparty/aes.js"></script>
-		<script type="text/javascript" crossorigin="anonymous" src="./webrtc.js?ver=901"></script>
+		<script type="text/javascript" crossorigin="anonymous" src="./webrtc.js?ver=923"></script>
 		<input id="zoomSlider" type="range" style="display: none;" />
 		<span id="electronDragZone" style="display:none;pointer-events: none; z-index:-10; position:absolute;top:0;left:0;width:100%;height:2%;min-height:20px;"></span>
 		<div id="header">
@@ -121,6 +126,24 @@
 				<i class="las la-paperclip" style="color: #DDD;" title="Copy link to clipboard" onclick="copyFunction(document.getElementById('reshare'), event);" onmouseover="this.style.cursor='pointer'"></i>
 				<span title="Save and ask to reload the current page on next site visit" style='font-size:92%;' onclick="saveRoom(this);" onmouseover="this.style.cursor='pointer'">💾</span>
 			</div>
+			<div id="head9" style="display: inline-block;" class="hidden">
+			
+				<span id="copythisurl2"  tabindex="1" > &nbsp; 
+					<span data-translate="invite-others-to-room">Invite others with</span> <i style="color: #CCC;" class="las la-long-arrow-alt-right"></i> &nbsp; 
+				</span>
+				
+				<a
+					id="inviteLinkURL"
+					data-drag="1"
+					onclick="copyFunction(this, event)"
+					class="task grabLinks"
+					data-menu="context-menu"
+				></a>
+			
+				<i class="las la-paperclip" style="color: #DDD;" title="Copy link to clipboard" onclick="copyFunction(document.getElementById('inviteLinkURL'), event);" onmouseover="this.style.cursor='pointer'"></i>
+				<span title="Save and ask to reload the current page on next site visit" style='font-size:92%;' onclick="showInviteQR();" onmouseover="this.style.cursor='pointer'"><i class="las la-qrcode" style="color: #DDD;   font-size: 160%; vertical-align: bottom;position: relative;top: 1px;" title="Show QR Code" ></i></span>
+				
+			</div>
 			<div id="head4" style="display: inline-block;" class="hidden">
 				<span>
 					<span data-translate="you-are-in-the-control-center">Control center for room:</span>
@@ -128,6 +151,7 @@
 					<div id="dirroomid" style="font-size: 140%; color: #99c; display: inline-block;"></div>
 					<span id="saveRoom" onclick="saveRoom(this)" style='cursor:pointer;margin-left:10px;' title="Will remember the room, prompting you the next time you visit if you wish to load this director's room again">💾</span>
 					<span id="togglePreviewMode" onclick="switchModes()" style='cursor:pointer;margin-left:2px;' title="Toggle between the director control-room view and a scene preview-mode.">🪟</span>
+					<i id="meshDebugBtn" class="las la-project-diagram" onclick="openMeshVisualization()" style="cursor:pointer;margin-left:3px;color:#DDD;font-size: 130%; vertical-align: bottom;" title="Open mesh network debug visualization to see P2P connections between guests"></i>
 				</span>
 			</div>
 			<div id="head2" class="hidden" style="display: inline-block; text-decoration: none; font-size: 60%; color: white;">
@@ -160,6 +184,18 @@
 			<div class="resizer"></div>
 		</div>
 		<div id="activeShares"></div>
+		<div id="whepShareStatus" class="message-card info hidden" role="status" aria-live="polite" aria-atomic="true">
+			<button id="whepShareDismiss" type="button" class="whep-share-dismiss" onclick="dismissWhepShareStatus(event)" title="Hide WHEP share status" aria-label="Hide WHEP share status">x</button>
+			<h1>WHEP share active</h1>
+			<p id="whepShareDescription">Advertising a WHEP source to room peers via the data channel.</p>
+			<div class="whep-share-row">
+				<input id="whepShareLink" type="text" readonly aria-label="Shared WHEP URL" />
+				<button id="whepShareCopy" onclick="copyFunction(getById('whepShareLink'), event)">Copy</button>
+				<a id="whepShareOpen" href="#" target="_blank" rel="noopener">Open</a>
+			</div>
+			<p id="whepShareTokenNote" class="whep-share-note hidden">Auth token: set</p>
+			<p id="whepShareDataOnly" class="whep-share-note hidden">Data-only mode: no local camera or mic is being published.</p>
+		</div>
 		<div id="controlButtons" class="hidden">
 			<div class="controlPositioning">
                 <div id="subControlButtons">
@@ -186,6 +222,23 @@
                     <div id="chatbutton" title="Toggle the Chat" alt="Toggle the Chat" aria-label="Text chat" onmousedown="event.preventDefault(); event.stopPropagation();"  onclick="toggleChat()"  tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);"  class="hidden float" style="cursor: pointer;" >
                         <i id="chattoggle" class="toggleSize las la-comment-alt"></i>
                         <div id="chatNotification"></div>
+                    </div>
+                    <div
+                        id="chatlitebutton"
+                        title="Toggle Social Stream Lite overlay (SHIFT-click setup, ALT/CTRL-click TTS)"
+                        alt="Toggle Social Stream Lite overlay"
+                        aria-label="Social Stream Lite overlay"
+                        onmousedown="event.preventDefault(); event.stopPropagation();"
+                        oncontextmenu="event.preventDefault(); openChatLiteSettings(); return false;"
+                        onclick="toggleChatLiteOverlay(event)"
+                        tabindex="2"
+                        role="button"
+                        aria-pressed="false"
+                        onkeyup="enterPressedClick(event,this);"
+                        class="hidden float"
+                        style="cursor: pointer;"
+                    >
+                        <i id="chatlitetoggle" class="toggleSize las la-broadcast-tower"></i>
                     </div>
                     <div id="mutespeakerbutton" onmousedown="handleSpeakerButtonMouseDown(event)" alt="Toggle the speaker output." aria-label="Mute Speaker output" title="Mute the Speaker (ALT + A)" onclick="toggleSpeakerMute()"  tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);"  class="hidden float" style="cursor: pointer;" >
                         <i id="mutespeakertoggle" class="toggleSize las la-volume-up" style="position: relative; top: 0.5px;"></i>
@@ -272,8 +325,15 @@
                     </div>
                 </div>
             </div>
-		</div>
-		<span id="miniTaskBar" style="float: right; bottom: 0px;right:0; position:fixed; display:flex;">
+			</div>
+			<div id="joinRequestPanel" class="hidden">
+				<div class="joinRequestHeader">
+					<strong>Pending Join Requests</strong>
+					<button type="button" onclick="toggleJoinRequestPanel(false)">Close</button>
+				</div>
+				<div id="joinRequestList"></div>
+			</div>
+			<span id="miniTaskBar" style="float: right; bottom: 0px;right:0; position:fixed; display:flex;">
 			<div id="closedList_connectUsers" class="hidden"  onclick="getById('connectUsers').classList.remove('hidden');getById('closedList_connectUsers').classList.add('hidden');">
 				<i class="las la-theater-masks"></i>
 			</div>
@@ -342,10 +402,10 @@
 									<div id="securityLevelRoom" style="display:none;margin-top:3px;position:relative;top:3px;font-size:0.8em;"></div>
 								</th>
 							</tr>
-							<tr>
-								<th style="text-align:right;" class="labelLarge">
-									<b>
-										<span data-translate="password-input-field">Password</span>: 
+								<tr>
+									<th style="text-align:right;" class="labelLarge">
+										<b>
+											<span data-translate="password-input-field">Password</span>:
 									</b>
 								</th>
 								<th class="labelSmall"></th>
@@ -355,10 +415,11 @@
 											<span data-translate="password-input-field">Password</span>: 
 										</b>
 									</div>
-									<input type="text" autocorrect="off" autocapitalize="none" id="passwordRoom" placeholder="Optional room password here" onkeydown="checkStrengthRoom(event, 'securityLevelRoom');" onchange="checkStrengthRoom(event, 'securityLevelRoom');"  onkeyup="enterPressed(event, createRoom);" style="max-width: 431px;width: 100%;font-size: 110%; padding: 5px;" />
-								</th>
-							</tr>
-							<tr >
+										<input type="text" autocorrect="off" autocapitalize="none" id="passwordRoom" placeholder="Optional room password here" onkeydown="checkStrengthRoom(event, 'securityLevelRoom');" onchange="checkStrengthRoom(event, 'securityLevelRoom');"  onkeyup="enterPressed(event, createRoom);" style="max-width: 431px;width: 100%;font-size: 110%; padding: 5px;" />
+										<div id="passwordRoomSSONote" style="display:none; margin-top:6px; font-size:0.85em; opacity:0.9;">SSO rooms use a managed room secret. Manual room password is disabled.</div>
+									</th>
+								</tr>
+								<tr >
 							
 								<th style="text-align:right; padding: 5px; padding-top: 20px;">
 									<input id="broadcastFlag" type="checkbox" title="For large group rooms, this option can reduce the load on remote guests substantially" />
@@ -403,10 +464,10 @@
 									<b>
 										<span title="Use SSO to manage access for this room. As director, you will sign in first; guest access can be Public, Require SSO, or Allowlist.">Use SSO for this room</span>
 									</b>
-									<div id="ssoOptions" class="sso-options-panel" style="display:none;">
-										<div style="margin-bottom:6px; font-weight:600;">Guest access:</div>
-										<label style="display:block; margin:4px 0;">
-											<input type="radio" name="ssoAccessMode" value="public" checked onclick="document.getElementById('preAllowlistRow').style.display='none'">
+										<div id="ssoOptions" class="sso-options-panel" style="display:none;">
+											<div style="margin-bottom:6px; font-weight:600;">Guest access:</div>
+											<label style="display:block; margin:4px 0;">
+												<input type="radio" name="ssoAccessMode" value="public" checked onclick="document.getElementById('preAllowlistRow').style.display='none'">
 											<span>Public (no sign-in required for guests)</span>
 										</label>
 										<label style="display:block; margin:4px 0;">
@@ -420,12 +481,22 @@
 										<div id="preAllowlistRow" style="display:none; margin-top:8px;">
 											<label for="preAllowlistCSV" style="display:block; margin-bottom:4px;">Allowed list (comma-separated; use @handle or email:*@domain.com)</label>
 											<input id="preAllowlistCSV" type="text" class="sso-options-input" placeholder="@alice, email:*@company.com">
+											</div>
+											<div class="sso-options-note">You can change these later in Room Settings.</div>
 										</div>
-										<div class="sso-options-note">You can change these later in Room Settings.</div>
-									</div>
-								</th>
-							</tr>
-							</table>
+										</th>
+									</tr>
+									<tr>
+										<th style="text-align:right; padding: 5px;">
+											<input id="requireApprovalForRoom" type="checkbox" title="Require the director to approve guests before they can join this room.">
+										</th>
+										<th style="text-align:left;">
+											<b>
+												<span title="Require the director to approve guests before they can join this room.">Require director approval before guests can join</span>
+											</b>
+										</th>
+									</tr>
+									</table>
 							<button onclick="createRoom()"  class="gobutton gowebcam" style="width: 470px;display: block;margin: 20px auto;" alt="Enter the room as the group's director" title="You'll enter as the room's director">
 								<span data-translate="enter-the-rooms-control">Enter the room's Control Center in the director's role</span>
 							</button>
@@ -490,9 +561,14 @@
 					</div>
 					<div id="guestTips" style="display:none" aria-hidden="true">
 						<p data-translate="for-the-best-possible-experience-make-sure">For the best possible experience, make sure</p>
-						<span><i class="las la-plug"></i><span data-translate="your-device-is-powered">Your device is powered</span></span>
-						<span><i class="las la-ethernet"></i><span data-translate="your-connection-is-hardwired-instead-of-wifi">Your connection is hardwired instead of wifi</span></span>
-						<span><i class="las la-headphones"></i><span data-translate="you-are-using-headphones-earphones">You are using headphones / earphones</span></span>
+						<ul class="guest-tip-list">
+							<li class="guest-tip-item" data-tip-id="1" data-tip-default="true"><i class="las la-plug"></i><span data-translate="your-device-is-powered">Your device is powered</span></li>
+							<li class="guest-tip-item" data-tip-id="2" data-tip-default="true"><i class="las la-ethernet"></i><span data-translate="your-connection-is-hardwired-instead-of-wifi">Your connection is hardwired instead of wifi</span></li>
+							<li class="guest-tip-item" data-tip-id="3" data-tip-default="true"><i class="las la-headphones"></i><span data-translate="you-are-using-headphones-earphones">You are using headphones / earphones</span></li>
+							<li class="guest-tip-item" data-tip-id="4"><i class="las la-times-circle"></i><span data-translate="close-other-video-apps">Close other video/calling apps</span></li>
+							<li class="guest-tip-item" data-tip-id="5"><i class="las la-volume-mute"></i><span data-translate="use-quiet-room">Use a quiet room</span></li>
+							<li class="guest-tip-item" data-tip-id="6"><i class="las la-sun"></i><span data-translate="face-good-lighting">Face a light source</span></li>
+						</ul>
 					</div>
 					<div id="videoMenu" class="videoMenu" aria-hidden="true">
 						<div class="title">
@@ -608,6 +684,7 @@
 						<select id="effectSelector" alt="Digital video effect options" onchange="effectsDynamicallyUpdate(event, this);">
 							<option value="0" data-translate="no-effects-applied">No effects applied</option>
 							<option value="3" data-translate="blurred-background">Blurred background</option>
+							<option value="16">Background transparent</option>
 							<option value="13" class="hidden" disabled data-translate="blurred-background-2">Blurred background 2 🧪</option>
 							<option value="4" data-translate="digital-greenscreen">Digital greenscreen</option>    
 							<option value="5" data-translate="virtual-background">Virtual background</option>
@@ -728,12 +805,12 @@
 									<span data-translate="highest-resolution">Highest</span>
 								</label> &nbsp;&nbsp;|&nbsp;&nbsp;
 							
-								<input type="radio" id="fullhd2" name="resolution2" value="0" />
+								<input type="radio" checked id="fullhd2" name="resolution2" value="0" />
 								<label style="cursor:help" for="fullhd2" title="This will capture at up to 1920x1080 resolution, but it will use up more CPU and may reduce frame rate.">
 									<span data-translate="1080p-resolution">Full HD</span>
 								</label> &nbsp;&nbsp;|&nbsp;&nbsp;
 								
-								<input type="radio" checked id="halfhd2" name="resolution2" value="1" />
+								<input type="radio" id="halfhd2" name="resolution2" value="1" />
 								<label style="cursor:help" for="halfhd2" title="This will capture at a medium resolution; suitable for gaming where frame rates matter more than resolution" >
 									<span data-translate="720p-balanced">Balanced</span>
 								</label> &nbsp;&nbsp;|&nbsp;&nbsp;
@@ -1085,20 +1162,20 @@
 				<i style="margin-top:30px;font-size:600%;overflow:hidden;" class="largeDarkIcon las la-broadcast-tower"></i>
 			</div>
 			
-			<div id="container-16" class="column columnfade pointer card hidden" style=" overflow-y: auto;">
-				<h2><span data-translate="share-whepsrc">Share via WHEP</span></h2>
-				<i style="margin-top:30px;font-size:560%;overflow:hidden;" class="largeDarkIcon las la-broadcast-tower"></i>
-				<div class="container-inner">
-					<br />
-					<div id="previewWhepSource"></div>
-					<br />
-					<span data-translate="enter-the-whep-URL-you-wish-to-share">Enter the WHEP URL you wish to share.</span><br /><br />
-					<input type="text" autocorrect="off" id="whepURL" autocapitalize="none" style="margin:10px; border:2px solid; padding:10px; width:400px;" title="Enter an HTTPS URL" multiple/><br />
-					<button onclick="previewIframe(getById('whepURL').value);" >Preview WHEP Stream</button> 
-					<button onclick="this.innerHTML = 'Update'; session.publishIFrame(getById('whepURL').value);" >Start Sharing</button><br />
-					<div class="message-card info">
-						<h1>Usage information</h1>
-						<p></p>
+				<div id="container-16" class="column columnfade pointer card hidden" style=" overflow-y: auto;">
+					<h2><span data-translate="share-whepsrc">Share via WHEP</span></h2>
+					<i style="margin-top:30px;font-size:560%;overflow:hidden;" class="largeDarkIcon las la-broadcast-tower"></i>
+					<div class="container-inner">
+						<br />
+						<span data-translate="enter-the-whep-URL-you-wish-to-share">Enter the WHEP URL you wish to share.</span><br /><br />
+						<input type="url" inputmode="url" spellcheck="false" autocorrect="off" id="whepURL" autocapitalize="none" style="margin:10px; border:2px solid; padding:10px; width:400px;" title="Enter an HTTPS URL" placeholder="https://example.com/path/whep" aria-describedby="whepURLHelp whepPreviewState" oninput="handleWhepUrlInputChange(event)" /><br />
+						<button id="whepPreviewToggle" onclick="toggleWhepTestPreview(event)" aria-pressed="false">Start Test Preview</button>
+						<button id="whepShareStart" onclick="startWhepSharingFromInput(event)" >Start Sharing</button><br />
+						<p id="whepURLHelp" class="whep-share-inline-note">Use https:// URLs. http://localhost is allowed for local testing.</p>
+						<p id="whepPreviewState" class="whep-share-inline-note">Test preview is off.</p>
+						<div class="message-card info">
+							<h1>Usage information</h1>
+							<p></p>
 						<ul style="text-align: left;">
 						<li>WHEP sources are expected to support multiple viewers; simulcasting will be used if possible.</li>
 						<li>Remote URLs must allows cross-origin requests (CORS), along with having SSL (https).</li>
@@ -1150,7 +1227,7 @@
 								<span style="color:#daad09;">Welcome to VDO Ninja! We've rebranded!  Nothing else is changing and we're staying 100% free.</span>
 							</h4>
 							<br />
-							<span title="Made in Canada">🌲</span> Site last updated on November 30th. You can also still access the previous version, which <a href="https://vdo.ninja/v28/">is hosted here</a>. Development <a target="_blank" title="Open a page with recent VDO.Ninja development and feature updates" href="https://updates.vdo.ninja/">updates are here.</a>
+							<span title="Made in Canada">❄️</span> Site last updated on January 27th. ToS also updated; <a target="_blank" href="https://github.com/steveseguin/vdo.ninja/commit/ee803984d4b1f7fc9174c4ddd92e172007150adc">changes here</a>. Development <a target="_blank" title="Open a page with recent VDO.Ninja development and feature updates" href="https://updates.vdo.ninja/">updates are here.</a> 
 							<br />
 							<br />
 							<h3>
@@ -1685,7 +1762,7 @@
 						<i class="las la-sync"></i>
 						<span data-translate="refresh-microphone">reconnect mic</span>
 					</button>
-					
+
 					<button data-action-type="addToScene" class="advanced" title="Add this Video to any remote '&scene=1'" data-scene="1" onclick="directEnable(this, event);">
 						<i class="las la-plus-square"></i>
 						<span data-translate="add-to-scene">add to scene 1</span>
@@ -1811,6 +1888,10 @@
 							<i class="las la-compact-disc"></i>
 							<span data-translate="record-remote"> Record Remote</span>
 						</button>
+						<button data-action-type="restart-whip" class="hidden" title="Restart WHIP publishing connection (e.g., to Meshcast/MediaMTX)" onclick="restartWhipDirector(this)">
+							<i class="las la-broadcast-tower"></i>
+							<span data-translate="restart-whip">Restart WHIP</span>
+						</button>
 						<button data-action-type="recorder-google-drive-remote" title="The Remote Guest will record their local stream and upload it to your Google Drive. *experimental*" onclick="requestGoogleDriveRecord(this, null, null, event)">
 							<i class="las la-compact-disc"></i>
 							<span data-translate="google-drive-record"> Google Drive</span>
@@ -1913,21 +1994,27 @@
 					<!-- Row of Channels -->
 					<div class="row advanced">
 						<span style="flex: 1 21%;color: lightgreen; margin: auto 0;">Monitor Mix</span>
-						<button class="btn-HL-paleblue" style="flex: 1 21%;" data-action-type="add-channel" title="Listen to this guest via your left audio speaker (Audio Channel 1)" onclick="changeChannelOffset(this.dataset.UUID, 0);">
+						<button class="btn-HL-paleblue" style="flex: 1 17%;" data-action-type="add-channel" title="Listen to this guest via your left audio speaker (Audio Channel 1)" onclick="changeChannelOffset(this.dataset.UUID, 0);">
 							<span>Your Left</span>
 						</button>
-						<button class="btn-HL-paleblue" style="flex: 1 21%;" data-action-type="add-channel" title="Listen to this guest via your right audio speaker (Audio Channel 2)" onclick="changeChannelOffset(this.dataset.UUID, 1);">
+						<button class="btn-HL-paleblue" style="flex: 1 17%;" data-action-type="add-channel" title="Listen to this guest via your right audio speaker (Audio Channel 2)" onclick="changeChannelOffset(this.dataset.UUID, 1);">
 							<span>Your Right</span>
 						</button>
 					</div>
 					<div class="row advanced" title="This guest will only hear audio from your left or right mic channel. Make everyone has &stereo=1 added to their URL to enable two-channel audio.">
-						<span style="flex: 1 21%; color: #F44; margin:auto 0;">PGM / Mic</span>
-						<button class="btn-HL-paleblue" style="flex: 1 21%;" data-action-type="isolate-channel" title="This guest will only hear audio your channel 1 mic source. Make everyone has &stereo=1 added to their URL to enable two-channel audio." data-channel="1" onclick="directIsolateChannel(this.dataset.UUID, 1);">
-							<span>Channel 1</span>
+						<span style="flex: 1 27%; color: #F44; margin:auto 0;">PGM / Mic</span>
+						<button class="btn-HL-paleblue" style="flex: 1 11%;" data-action-type="isolate-channel" title="This guest will only hear audio your channel 1 mic source. Make everyone has &stereo=1 added to their URL to enable two-channel audio." data-channel="1" onclick="directIsolateChannel(this.dataset.UUID, 1);">
+							<span>Ch 1</span>
 						</button>
-						<button class="btn-HL-paleblue" style="flex: 1 21%;" data-action-type="isolate-channel" title="This guest will only hear audio your channel 2 mic source. Make everyone has &stereo=1 added to their URL to enable two-channel audio."  data-channel="2" onclick="directIsolateChannel(this.dataset.UUID, 2);">
-							<span>Channel 2</span>
+						<button class="btn-HL-paleblue" style="flex: 1 11%;" data-action-type="isolate-channel" title="This guest will only hear audio your channel 2 mic source. Make everyone has &stereo=1 added to their URL to enable two-channel audio."  data-channel="2" onclick="directIsolateChannel(this.dataset.UUID, 2);">
+							<span>Ch 2</span>
 						</button>
+						<button class="btn-HL-paleblue" style="flex: 1 14%; position: relative;" data-action-type="custom-mix" title="Send custom audio mix to this guest - select which audio sources they hear" onclick="toggleMixDropdown(this.dataset.UUID, this, event);">
+							<span>Mix &#9662;</span>
+						</button>
+					</div>
+					<div class="mix-dropdown-container" style="display:none; position:relative;">
+						<div class="mix-dropdown" style="display:none;"></div>
 					</div>
 				</div>
 				<div class="row two"> 
@@ -2204,6 +2291,7 @@
 						<select id="effectSelector3" onchange="effectsDynamicallyUpdate(event, this);">
 							<option value="0" data-translate="no-effects-applied">No effects applied</option>
 							<option value="3" data-translate="blurred-background">Blurred background</option>
+							<option value="16">Background transparent</option>
 							<option value="13" class="hidden" disabled data-translate="blurred-background-2">Blurred background 2 🧪</option>
 							<option value="4" data-translate="digital-greenscreen">Digital greenscreen</option>    
 							<option value="5" data-translate="virtual-background">Virtual background</option>
@@ -2284,8 +2372,10 @@
 				
 				<button id='advancedOptionsGeneral' onclick="toggleUserUser(this);" >
 				<i class="las la-user-cog" style="position:relative;"></i> <b><span data-translate="user">User</span></b></button>
-				
-				
+
+				<button id='ssoSignOutBtn' onclick="ssoSignOut();" class="advancedToggle" style="display:none;" title="Sign out of SSO">
+				<i class="las la-sign-out-alt" style="position:relative;"></i> <b>Sign Out</b></button>
+
 				<span id="popupSelector_constraints_audio" class="popupSelector_constraints" style="display: none;">
 				
 				</span>
@@ -2312,6 +2402,18 @@
 						<button class='hidden drawActive' onclick="drawOnScreenObject.color(this);" data-color='black' style="background-color:black; margin: 0 0 0 4px; border-radius: 5px; padding: 3px 3px;">✏️</button>
 						<button class='hidden drawActive' onclick="drawOnScreenObject.color(this);" data-color='white' style="background-color:white; margin: 0 0 0 4px; border-radius: 5px; padding: 3px 3px;">🎨</button>
 						<br /><br />
+						
+						<span id="fullscreenToggleContainer">
+							<label title="Show a fullscreen button on the control bar" data-translate="show-fullscreen-button">Show Fullscreen Button</label>
+							<button id='toggleFullscreenButton' onclick="toggleFullscreenButtonSetting();" style="margin: 0 0 0 4px; border-radius: 5px; padding: 3px 3px;" data-translate="enable">Enable</button>
+							<br /><br />
+						</span>
+						<span id="pipToggleContainer">
+							<label title="Show a Picture-in-Picture button on the control bar" data-translate="show-pip-button">Show Picture-in-Picture Button</label>
+							<button id='togglePIPButton' onclick="togglePIPButtonSetting();" style="margin: 0 0 0 4px; border-radius: 5px; padding: 3px 3px;" data-translate="enable">Enable</button>
+							<br /><br />
+						</span>
+						
 						<button class="generalButton" onclick="cycleStyleOptions();" id='toggleWaveformButton' title="Audio-only sources can be stylized in different ways" data-translate="cycle-between-audio-visualizations">Cycle between several audio-visualizations styles</button>
 						<br />
 					</span>
@@ -2500,15 +2602,35 @@
 						<span data-translate="custom-audio-output">Audio Destination</span>
 					</a>
 				</li>
-				<li class="context-menu__item hidden" id="RemoteHangupContextOption">
-					<a href="#" class="context-menu__link" data-action="RemoteHangup">
-						<i class="las la-external-link"></i>
-						<span data-translate="remote-hangup-connection">Remote Hang-up</span>
+				<li class="context-menu__item context-menu__item--has-submenu hidden" id="RemoteControlsSubmenu">
+					<a href="#" class="context-menu__link" data-action="RemoteControlsParent">
+						<i class="las la-satellite-dish"></i>
+						<span data-translate="remote-controls">Remote Controls</span>
 					</a>
+					<ul class="context-menu__submenu context-menu__items">
+						<li class="context-menu__item" id="PTZControlsContextOption">
+							<a href="#" class="context-menu__link action" data-action="PTZControls">
+								<i class="las la-video"></i>
+								<span data-translate="ptz-controls">PTZ Controls</span>
+							</a>
+						</li>
+						<li class="context-menu__item" id="ResetAutofocusContextOption">
+							<a href="#" class="context-menu__link action" data-action="ResetAutofocus">
+								<i class="las la-crosshairs"></i>
+								<span data-translate="reset-autofocus">Reset Autofocus</span>
+							</a>
+						</li>
+						<li class="context-menu__item" id="RemoteHangupContextOption">
+							<a href="#" class="context-menu__link action" data-action="RemoteHangup">
+								<i class="las la-phone-slash"></i>
+								<span data-translate="remote-hangup-connection">Remote Hang-up</span>
+							</a>
+						</li>
+					</ul>
 				</li>
 				<li class="context-menu__item hidden" id="RemoteReloadContextOption">
-					<a href="#" class="context-menu__link" data-action="RemoteReload">
-						<i class="las la-external-link"></i>
+					<a href="#" class="context-menu__link action" data-action="RemoteReload">
+						<i class="las la-sync"></i>
 						<span data-translate="remote-reload-connection">Remote Reload Page</span>
 					</a>
 				</li>
@@ -2516,6 +2638,12 @@
 					<a href="#" class="context-menu__link" data-action="ChangeBuffer">
 						<i class="las la-external-link"></i>
 						<span data-translate="change-playout-buffer">Change Buffer</span>
+					</a>
+				</li>
+				<li class="context-menu__item hidden" id="SendTipContextOption">
+					<a href="#" class="context-menu__link" data-action="SendTip">
+						<i class="las la-dollar-sign"></i>
+						<span data-translate="send-tip">Send Tip</span>
 					</a>
 				</li>
 				<li class="context-menu__item hidden">
@@ -2672,7 +2800,43 @@
 				</div>
 			</div>
 		</div>
-		
+
+		<div id="ptzControlsModal" style="display:none; user-select: none;">
+			<div class="promptModalInner">
+				<span class='modalClose' onclick="togglePTZControls();">×</span>
+				<h3 data-translate="ptz-controls">PTZ Controls</h3>
+				<div class="ptz-control-group">
+					<label data-translate="pan">Pan:</label>
+					<input type="range" class="ptz-slider" id="ptzPanSlider" min="-100" max="100" value="0" />
+					<span class="ptz-value" id="ptzPanValue">0</span>
+				</div>
+				<div class="ptz-control-group">
+					<label data-translate="tilt">Tilt:</label>
+					<input type="range" class="ptz-slider" id="ptzTiltSlider" min="-100" max="100" value="0" />
+					<span class="ptz-value" id="ptzTiltValue">0</span>
+				</div>
+				<div class="ptz-control-group">
+					<label data-translate="zoom">Zoom:</label>
+					<input type="range" class="ptz-slider" id="ptzZoomSlider" min="0" max="100" value="50" />
+					<span class="ptz-value" id="ptzZoomValue">50</span>
+				</div>
+				<div class="ptz-control-group">
+					<label data-translate="focus">Focus:</label>
+					<input type="range" class="ptz-slider" id="ptzFocusSlider" min="-100" max="100" value="0" />
+					<span class="ptz-value" id="ptzFocusValue">0</span>
+					<button type="button" id="ptzResetAutofocusBtn" style="margin-left:10px;" data-translate="reset-autofocus">Reset Autofocus</button>
+				</div>
+				<div class="ptz-shortcuts">
+					<p><strong data-translate="keyboard-shortcuts">Keyboard Shortcuts:</strong></p>
+					<p><kbd>Shift</kbd> + Scroll = Pan</p>
+					<p><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Shift</kbd> + Scroll = Tilt</p>
+					<p><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + Scroll = Focus</p>
+					<p><kbd>Alt</kbd> + Scroll = Zoom (fine)</p>
+					<p>Scroll = Zoom</p>
+				</div>
+			</div>
+		</div>
+
 		<div id="publishSettings" style="display:none; user-select: none;">
 			<div class="promptModalInner">
 				<h3 data-translate="publish-settings">Publishing setup</h3>
@@ -2930,6 +3094,7 @@
 				<li><a onclick="changeLg('fr',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Paris">French</a></li>
 				<li><a onclick="changeLg('it',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Rome">Italian</a></li>
 				<li><a onclick="changeLg('es',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Madrid">Spanish</a></li>
+				<li><a onclick="changeLg('pl',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Warsaw">Polish</a></li>
 				<li><a onclick="changeLg('pt',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Lisbon;">Portuguese (Europe)</a></li>
 				<li><a onclick="changeLg('pt-br',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="America/Araguaina">Portuguese (Brazil)</a></li>
 				<li><a onclick="changeLg('nl',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Amsterdam">Dutch</a></li>
@@ -2941,6 +3106,7 @@
 				<li><a onclick="changeLg('ru',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Moscow">Russian</a></li>
 				<li><a onclick="changeLg('uk',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Ukraine">Ukrainian</a></li>
 				<li><a onclick="changeLg('eu',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Euskara">Basque</a></li>
+				<li><a onclick="changeLg('kr',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/Korea">Korean</a></li>
 				<li><a onclick="changeLg('pig',false, true);toggle(document.getElementById('languages'));" style="cursor: pointer;">Pig Latin</a></li>
 			</ul>
 			<span style="display:block;height:0;width:0;padding:0;margin:0;"></span>
@@ -2994,7 +3160,7 @@
 			// if (!window.location.search){document.body.innerHTML = "";} // uncomment this line, if you wish to try it.
 			
 			var session = WebRTC.Media; // session is a required global variable if configuring manually. Run before loading main.js but after webrtc.js.
-			session.version = "28.6"; // updated: default 1080p now + tweaked outbound bandwidth logic
+			session.version = "29.3"; // added director claim-time room admission controls (cap + bypass key + approval queue)
 			session.streamID = session.generateStreamID(); // randomly generates a streamID for this session. You can set your own programmatically if needed
 			
 			session.defaultPassword = "someEncryptionKey123"; // Change this password if self-deploying for added security/privacy
@@ -3121,29 +3287,55 @@
 		</script>
 		
 		<!-- Authentication client -->
-		<script type="text/javascript" crossorigin="anonymous" src="./auth-client.js?v=2"></script>
+		<script type="text/javascript" crossorigin="anonymous" src="./auth-client.js?v=3"></script>
 
-		<script type="text/javascript">
-			function toggleSSOOptions(enabled){
-				var box = document.getElementById('ssoOptions');
-				if (!box) return;
-				box.style.display = enabled ? 'block' : 'none';
-				var listRow = document.getElementById('preAllowlistRow');
-				if (!enabled) { if (listRow) listRow.style.display='none'; return; }
-				// Ensure allowlist row reflects current selection
-				try {
-					var selected = document.querySelector('input[name="ssoAccessMode"]:checked');
+				<script type="text/javascript">
+					function toggleSSOOptions(enabled){
+						var box = document.getElementById('ssoOptions');
+					if (!box) return;
+					box.style.display = enabled ? 'block' : 'none';
+					var passwordInput = document.getElementById('passwordRoom');
+					if (passwordInput) {
+						if (enabled) {
+							passwordInput.value = '';
+							passwordInput.disabled = true;
+						} else {
+							passwordInput.disabled = false;
+						}
+					}
+					var passwordNote = document.getElementById('passwordRoomSSONote');
+					if (passwordNote) {
+						passwordNote.style.display = enabled ? 'block' : 'none';
+					}
+					var listRow = document.getElementById('preAllowlistRow');
+					if (!enabled) { if (listRow) listRow.style.display='none'; return; }
+					// Ensure allowlist row reflects current selection
+					try {
+						var selected = document.querySelector('input[name="ssoAccessMode"]:checked');
 					if (selected && selected.value === 'allowlist') {
 						if (listRow) listRow.style.display='block';
 					} else {
 						if (listRow) listRow.style.display='none';
 					}
-				} catch(e){}
-			}
-		</script>
+					} catch(e){}
+				}
+					(function initSSOOptionsState(){
+						var ssoToggle = document.getElementById('useSSOForRoom');
+						if (ssoToggle) {
+							toggleSSOOptions(!!ssoToggle.checked);
+						}
+					})();
+					(function initRoomApprovalState(){
+						var roomApprovalToggle = document.getElementById('requireApprovalForRoom');
+						if (!roomApprovalToggle) return;
+						try {
+							roomApprovalToggle.checked = new URLSearchParams(window.location.search).has('requireapproval');
+						} catch (e) {}
+					})();
+				</script>
 
-		<script type="text/javascript" crossorigin="anonymous" id="lib-js" src="./lib.js?ver=1360"></script>
-		<script type="text/javascript" crossorigin="anonymous" id="main-js" src="./main.js?ver=1025"></script>
+		<script type="text/javascript" crossorigin="anonymous" id="lib-js" src="./lib.js?ver=1396"></script>
+		<script type="text/javascript" crossorigin="anonymous" id="main-js" src="./main.js?ver=1054"></script>
 		<script type="module" src="./podcast/bootstrap.js"></script>
 		
 	</body>

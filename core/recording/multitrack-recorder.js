@@ -83,6 +83,7 @@ export class MultiTrackRecorder extends EventTarget {
     this.recorders = new Map();
     this.files = new Map();
     this.trackMeters = new Map();
+    this.trackStartTimes = new Map(); // Per-track start times relative to session start
     this.startedAt = null;
   }
 
@@ -144,10 +145,11 @@ export class MultiTrackRecorder extends EventTarget {
     return participants;
   }
 
-  createTrackRecorders(participant, options) {
+  createTrackRecorders(participant, options, startOffsetSeconds = 0) {
     const { includeVideo, mimeType, bitsPerSecond, timeslice, monitorLevels, audioContext } = options;
     const { audio, video } = gatherTracksFromStream(participant.stream, { includeVideo });
     const recorders = [];
+    const trackStartOffset = Number.isFinite(startOffsetSeconds) ? Math.max(0, startOffsetSeconds) : 0;
 
     audio.forEach((track, index) => {
       const cloned = safeCloneTrack(track);
@@ -159,7 +161,7 @@ export class MultiTrackRecorder extends EventTarget {
         mimeType,
       });
       recorder.start({ timeslice, bitsPerSecond });
-      recorders.push({ recorder, trackType: 'audio', channelIndex: index });
+      recorders.push({ recorder, trackType: 'audio', channelIndex: index, startOffsetSeconds: trackStartOffset });
       if (monitorLevels && audioContext) {
         monitorTrackLevel(audioContext, cloned, {
           uuid: participant.uuid,
@@ -196,10 +198,98 @@ export class MultiTrackRecorder extends EventTarget {
         mimeType: null,
       });
       recorder.start({ timeslice, bitsPerSecond });
-      recorders.push({ recorder, trackType: 'video', channelIndex: index });
+      recorders.push({ recorder, trackType: 'video', channelIndex: index, startOffsetSeconds: trackStartOffset });
     });
 
     return recorders;
+  }
+
+  attachRecorderHandlers(participant, recorders) {
+    recorders.forEach(({ recorder, trackType, channelIndex, startOffsetSeconds }) => {
+      const key = `${participant.uuid}:${trackType}:${channelIndex}`;
+      this.recorders.set(key, recorder);
+      this.trackStartTimes.set(key, startOffsetSeconds);
+      recorder.addEventListener('data', (event) => {
+        this.dispatchEvent(
+          new CustomEvent('chunk', {
+            detail: {
+              participant,
+              trackType,
+              channelIndex,
+              data: event.detail,
+            },
+          }),
+        );
+      });
+      recorder.addEventListener('error', (event) => {
+        this.dispatchEvent(
+          new CustomEvent('error', {
+            detail: {
+              participant,
+              trackType,
+              channelIndex,
+              error: event.detail,
+            },
+          }),
+        );
+      });
+      recorder.addEventListener('stop', () => {
+        const blob = recorder.toBlob();
+        if (blob) {
+          const fileKey = `${participant.uuid}:${trackType}:${channelIndex}`;
+          this.files.set(fileKey, {
+            blob,
+            originalBlob: blob,
+            participant,
+            trackType,
+            channelIndex,
+            mimeType: recorder.mimeType,
+            originalMimeType: recorder.mimeType,
+            durationSeconds: typeof recorder.getDurationSeconds === 'function' ? recorder.getDurationSeconds() : null,
+            recorderLabel: recorder.label,
+            startOffsetSeconds,
+          });
+        }
+        this.dispatchEvent(
+          new CustomEvent('track-stopped', {
+            detail: {
+              participant,
+              trackType,
+              channelIndex,
+            },
+          }),
+        );
+      });
+    });
+  }
+
+  addParticipant(participant) {
+    if (!this.startedAt) {
+      throw new Error('Cannot add participant: recording not started.');
+    }
+    if (!participant || !participant.stream) {
+      throw new Error('Cannot add participant: missing stream.');
+    }
+    const startOffsetSeconds = (Date.now() - this.startedAt) / 1000;
+    const recorders = this.createTrackRecorders(participant, this.options, startOffsetSeconds);
+    if (!recorders.length) {
+      return { added: false, tracks: 0, startOffsetSeconds };
+    }
+    this.attachRecorderHandlers(participant, recorders);
+    this.dispatchEvent(
+      new CustomEvent('participant-added', {
+        detail: {
+          participant,
+          trackCount: recorders.length,
+          startOffsetSeconds,
+        },
+      }),
+    );
+    return { added: true, tracks: recorders.length, startOffsetSeconds };
+  }
+
+  isRecording() {
+    return this.startedAt !== null && this.recorders.size > 0;
   }
 
   async start(customOptions = {}) {
@@ -249,67 +339,14 @@ export class MultiTrackRecorder extends EventTarget {
     }
 
     participants.forEach((participant) => {
-      const recorders = this.createTrackRecorders(participant, options);
-      recorders.forEach(({ recorder, trackType, channelIndex }) => {
-        const key = `${participant.uuid}:${trackType}:${channelIndex}`;
-        this.recorders.set(key, recorder);
-        recorder.addEventListener('data', (event) => {
-          this.dispatchEvent(
-            new CustomEvent('chunk', {
-              detail: {
-                participant,
-                trackType,
-                channelIndex,
-                data: event.detail,
-              },
-            }),
-          );
-        });
-        recorder.addEventListener('error', (event) => {
-          this.dispatchEvent(
-            new CustomEvent('error', {
-              detail: {
-                participant,
-                trackType,
-                channelIndex,
-                error: event.detail,
-              },
-            }),
-          );
-        });
-        recorder.addEventListener('stop', () => {
-          const blob = recorder.toBlob();
-          if (blob) {
-            const fileKey = `${participant.uuid}:${trackType}:${channelIndex}`;
-            this.files.set(fileKey, {
-              blob,
-              originalBlob: blob,
-              participant,
-              trackType,
-              channelIndex,
-              mimeType: recorder.mimeType,
-              originalMimeType: recorder.mimeType,
-              durationSeconds: typeof recorder.getDurationSeconds === 'function' ? recorder.getDurationSeconds() : null,
-              recorderLabel: recorder.label,
-            });
-          }
-          this.dispatchEvent(
-            new CustomEvent('track-stopped', {
-              detail: {
-                participant,
-                trackType,
-                channelIndex,
-              },
-            }),
-          );
-        });
-      });
+      const recorders = this.createTrackRecorders(participant, options, 0);
+      this.attachRecorderHandlers(participant, recorders);
     });
 
-    this.dispatchEvent(new CustomEvent('start', { detail: { participants } }));
+    this.dispatchEvent(new CustomEvent('start', { detail: { participants, startedAt: this.startedAt } }));
   }
 
-  async stop() {
+  async stop({ markers = null } = {}) {
     const stops = [];
     this.recorders.forEach((recorder) => {
       stops.push(recorder.stop());
@@ -322,10 +359,12 @@ export class MultiTrackRecorder extends EventTarget {
       }
     });
     this.trackMeters.clear();
+    this.trackStartTimes.clear();
     await Promise.allSettled(stops);
     await Promise.allSettled(meterStops);
-    await this.packageAudioFiles();
+    await this.packageAudioFiles({ markers });
     const packaged = this.files;
+    this.startedAt = null;
     this.dispatchEvent(new CustomEvent('stop', { detail: { files: packaged } }));
     return packaged;
   }
@@ -342,7 +381,7 @@ export class MultiTrackRecorder extends EventTarget {
     return this.trackMeters.get(key) || null;
   }
 
-  async packageAudioFiles() {
+  async packageAudioFiles({ markers = null } = {}) {
     if (!this.files.size) {
       return this.files;
     }
@@ -361,8 +400,11 @@ export class MultiTrackRecorder extends EventTarget {
       conversions.push(
         (async () => {
           try {
+            const trackStartOffsetSeconds = fileMeta.startOffsetSeconds || 0;
             const wavBlob = await convertBlobToWav(fileMeta.blob, {
               sampleRate: this.options.targetSampleRate,
+              markers,
+              trackStartOffsetSeconds,
               audioContext: this.options.audioContext,
             });
             fileMeta.originalBlob = fileMeta.originalBlob || fileMeta.blob;

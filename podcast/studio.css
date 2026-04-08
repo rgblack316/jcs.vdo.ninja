@@ -45,10 +45,32 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   letter-spacing: 0.12em;
 }
 
+.video-record-hint {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+}
+
+.video-iso-tip {
+  font-size: 0.72rem;
+  color: rgba(158, 197, 255, 0.6);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.video-iso-tip:hover {
+  color: #9ec5ff;
+  background: rgba(95, 142, 255, 0.15);
+  text-decoration: underline;
+}
+
 .podcast-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 460px 1fr;
   gap: 24px;
   padding: 24px 32px 32px;
   overflow: hidden;
@@ -84,8 +106,8 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 
 .roster-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 10px;
   padding: 14px 16px;
   border-radius: 14px;
   background: rgba(23, 30, 46, 0.9);
@@ -103,8 +125,9 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 
 .roster-meta {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
 }
 
 .roster-name {
@@ -124,9 +147,29 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
 }
 
+.roster-item__media-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.roster-item__video-thumb {
+  width: 80px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #1a1a2e;
+  flex-shrink: 0;
+}
+
+.roster-item__video-thumb[data-no-video="true"] {
+  display: none;
+}
+
 .meter-bar {
   position: relative;
-  width: 140px;
+  width: 70px;
+  flex-shrink: 0;
   height: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
@@ -148,15 +191,12 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: flex-end;
-  min-width: 180px;
 }
 
 .roster-action-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .roster-action-button {
@@ -195,6 +235,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
   opacity: 0.58;
   color: rgba(255, 255, 255, 0.75);
+  align-self: center;
 }
 
 .roster-drive-status[data-state="uploading"],
@@ -248,6 +289,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   box-shadow: inset 0 0 28px -24px rgba(0, 0, 0, 0.9);
   flex: 0 0 auto;
   min-width: 220px;
+  max-width: 100%;
 }
 
 .session-tool__title {
@@ -399,6 +441,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 
 .invite-option__label {
   flex: 1;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .chat-panel {
@@ -476,6 +519,50 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   display: block;
 }
 
+/* Generic collapsible panel styles */
+.podcast-panel[data-collapsible='true'] {
+  position: relative;
+}
+
+.panel-collapse-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.65rem;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 1;
+}
+
+.panel-collapse-toggle:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.podcast-panel[data-collapsed='true'] > *:not(.panel-collapse-toggle):not(h2):not(.podcast-panel__header):not(.session-tool__title) {
+  display: none;
+}
+
+.podcast-panel[data-collapsed='true'] .panel-collapse-toggle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.chat-panel__actions .panel-collapse-toggle {
+  position: static;
+}
+
 .chat-panel__empty {
   font-size: 0.85rem;
   opacity: 0.65;
@@ -505,6 +592,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease;
+  white-space: nowrap;
 }
 
 .transport-buttons button.recording {
@@ -517,6 +605,26 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 .transport-buttons button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Video record button (Record Group) - matches transport-buttons styling */
+.transport-strip--video button {
+  background: rgba(95, 142, 255, 0.18);
+  color: #a6c8ff;
+  border: 1px solid rgba(95, 142, 255, 0.4);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+  white-space: nowrap;
+}
+
+.transport-strip--video button:hover {
+  background: rgba(95, 142, 255, 0.28);
+  color: #d7e6ff;
 }
 
 .transport-disk {
@@ -548,6 +656,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
+  white-space: nowrap;
 }
 
 .transport-disk__toggle[data-state='enabled'] {
@@ -584,6 +693,16 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   opacity: 0.68;
 }
 
+.recording-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .session-recording-status {
   font-size: 0.82rem;
   padding: 6px 12px;
@@ -591,7 +710,6 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   border-radius: 10px;
   background: rgba(12, 15, 26, 0.9);
   color: rgba(255, 255, 255, 0.78);
-  min-width: 200px;
 }
 
 .session-recording-status[data-state='arming'],
@@ -625,6 +743,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .transport-disk__folder:disabled {
@@ -639,6 +758,14 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   max-height: 160px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.marker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .marker-item {
@@ -877,6 +1004,16 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   color: #2fe7a3;
 }
 
+.upload-status-line[data-status="pending"],
+.upload-status-line[data-status="uploading"],
+.upload-status-line[data-status="queued"] {
+  color: #9ec5ff;
+}
+
+.upload-status-line[data-status="skipped"] {
+  color: rgba(255, 255, 255, 0.62);
+}
+
 .upload-status-line[data-status="error"] {
   color: #ff5c69;
 }
@@ -894,7 +1031,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   color: rgba(255, 255, 255, 0.5);
 }
 
-.session-tool--host {
+.host-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -917,6 +1054,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+  white-space: nowrap;
 }
 
 .host-input-toggle.active {
@@ -928,6 +1066,34 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 .host-input-toggle:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.host-mute-toggle {
+  background: rgba(95, 142, 255, 0.12);
+  color: #9ec5ff;
+  border: 1px solid rgba(95, 142, 255, 0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.host-mute-toggle:hover:not(:disabled) {
+  background: rgba(95, 142, 255, 0.2);
+}
+
+.host-mute-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.host-mute-toggle.muted {
+  background: rgba(255, 107, 136, 0.18);
+  border-color: rgba(255, 107, 136, 0.35);
+  color: #ff6b88;
 }
 
 .host-input-status {
@@ -986,6 +1152,7 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease, color 120ms ease, opacity 120ms ease;
+  white-space: nowrap;
 }
 
 .cloud-sync-list__button:hover {
@@ -1110,9 +1277,9 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
 }
 
 .cloud-sync-list--disk {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
 }
 
 .cloud-sync-summary {
@@ -1164,35 +1331,141 @@ body.podcast-studio-mode > :not(#podcast-root):not(#podcast-room-gate):not([data
   color: rgba(255, 255, 255, 0.45);
 }
 
-.cloud-sync-progress {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  background: rgba(8, 10, 18, 0.75);
-  display: grid;
-  gap: 6px;
+/* ISO Recording Destinations - unified section */
+.session-tool--iso-config {
+  gap: 12px;
 }
 
-.cloud-sync-progress__item {
+.iso-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.iso-config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.iso-config-row:last-child {
+  border-bottom: none;
+}
+
+.iso-config-row__label {
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.8);
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.iso-config-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.iso-config-row__button {
+  background: rgba(47, 231, 163, 0.15);
+  color: #2fe7a3;
+  border: 1px solid rgba(47, 231, 163, 0.35);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.iso-config-row__button:hover:not(:disabled) {
+  background: rgba(47, 231, 163, 0.25);
+}
+
+.iso-config-row__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.iso-config-row__button[data-state='linked'],
+.iso-config-row__button[data-state='enabled'] {
+  background: rgba(47, 231, 163, 0.3);
+  color: #1a3d2e;
+}
+
+.iso-config-row__button--secondary {
+  background: rgba(95, 142, 255, 0.15);
+  color: #9ec5ff;
+  border-color: rgba(95, 142, 255, 0.3);
+}
+
+.iso-config-row__button--secondary:hover:not(:disabled) {
+  background: rgba(95, 142, 255, 0.25);
+}
+
+.iso-config-row__status {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.03em;
+}
+
+.iso-config-row__status[data-state='ready'],
+.iso-config-row__status[data-state='linked'] {
+  color: #2fe7a3;
+}
+
+.iso-config-row__status[data-state='error'] {
+  color: #ff6b88;
+}
+
+.iso-config-row__hint {
+  margin-top: 4px;
+  padding-left: 102px;
+}
+
+.iso-config-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(8, 10, 18, 0.7);
+}
+
+.iso-config-summary__item {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.7);
 }
 
-.cloud-sync-progress__item[data-state='uploading'] {
-  color: #96c7ff;
+.iso-config-summary__services {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
 }
 
-.cloud-sync-progress__item[data-state='pending'] {
-  color: #f2d95c;
+.iso-config-summary__item--service {
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
 }
 
-.cloud-sync-progress__item[data-state='error'] {
-  color: #ff8a84;
-}
-
-.cloud-sync-progress__item[data-state='complete'] {
+.iso-config-summary__item[data-state='ready'] {
   color: #2fe7a3;
+}
+
+.iso-config-summary__item[data-state='uploading'] {
+  color: #9ec5ff;
+}
+
+.iso-config-summary__item[data-state='complete'] {
+  color: #8fd8ff;
+}
+
+.iso-config-summary__item[data-state='error'] {
+  color: #ff6b88;
 }
 
 @media (max-width: 640px) {
@@ -1731,4 +2004,190 @@ body.podcast-studio-mode #chatModule .message {
 
 body.podcast-studio-mode #chatModuleButton {
   display: none !important;
+}
+
+/* Help link in footer */
+.podcast-help-link {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  padding: 0;
+  margin: 0;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.podcast-help-link:hover {
+  opacity: 1;
+  text-decoration-style: solid;
+}
+
+/* Help modal overlay */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.help-overlay[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.help-overlay__panel {
+  background: linear-gradient(145deg, #1e2433, #151a26);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  transform: translateY(20px);
+  transition: transform 0.2s ease;
+}
+
+.help-overlay[data-visible="true"] .help-overlay__panel {
+  transform: translateY(0);
+}
+
+.help-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.help-overlay__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #f5f7ff;
+}
+
+.help-overlay__close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.help-overlay__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.help-overlay__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
+}
+
+/* Help sections (collapsible) */
+.help-section {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.help-section[open] {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.help-section__title {
+  padding: 14px 16px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #e0e4f0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+}
+
+.help-section__title::-webkit-details-marker {
+  display: none;
+}
+
+.help-section__title::after {
+  content: '+';
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.help-section[open] .help-section__title::after {
+  content: '−';
+}
+
+.help-section__title:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.help-section__body {
+  padding: 0 16px 16px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.help-section__body p {
+  margin: 0 0 12px;
+}
+
+.help-section__body p:last-child {
+  margin-bottom: 0;
+}
+
+.help-section__body ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.help-section__body li {
+  margin-bottom: 6px;
+}
+
+.help-section__body strong {
+  color: #e0e4f0;
+}
+
+.help-section__body code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.help-section__body a {
+  color: #6eb5ff;
+  text-decoration: none;
+}
+
+.help-section__body a:hover {
+  text-decoration: underline;
 }

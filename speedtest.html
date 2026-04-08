@@ -13,6 +13,7 @@
 		<title>VDON Speed Test</title>
 	</head>
 	<body onload="loadIframe();">
+		<div id="mainapp">
 		<h1>
 			VDO.Ninja's video streaming quality test
 		</h1>
@@ -62,18 +63,18 @@
 					Good packet loss will not exceed 0.1% and bad packet loss will exceed 1%. You can try testing against different global regions with the drop-down menu below.
 				</li>
 				<li>
-					Check out <a href="https://youtu.be/je2ljlvLzlY" target="_blank" style='color:#DEF;'>this Youtube video</a> for more details and solutions to reduce packet loss if suffering from any.
+					Check out <a href="https://youtu.be/je2ljlvLzlY" target="_blank">this Youtube video</a> for more details and solutions to reduce packet loss if suffering from any.
 				</li>
 			</ol>
 			<h2>Unsupervised guest check option</h2>
-			<span  style="margin:5px;line-height:32px;font-size:110%;">
-				You can also use <a target="_blank" style="color: #CCC;" id="checklink" href='./check.html'>this tool</a> to have a guest perform a system and connection test, with those results being available to you via a result's page for up to a week.<br />
-				You can either ask the remote guest to send you the link to their results page when they complete the test, or you can use <i style="color: #CCF;" >check.html?id=xxx</i> to pre-assign the test ID (ie: xxx), which will have the results then be available at <i style="color: #CCF;" >results.html?id=xxx</i>.
-				<br />If you have questions, <a href="https://discord.vdo.ninja" style="color: #CCC;" target="_blank">join the Discord here</a>.
-			</span>
+			<div class="guest-check">
+				You can also use <a target="_blank" id="checklink" href='./check.html'>this tool</a> to have a guest perform a system and connection test, with those results being available to you via a result's page for up to a week.<br />
+				You can either ask the remote guest to send you the link to their results page when they complete the test, or you can use <code>check.html?id=xxx</code> to pre-assign the test ID (ie: xxx), which will have the results then be available at <code>results.html?id=xxx</code>.
+				<br />If you have questions, <a href="https://discord.vdo.ninja" target="_blank">join the Discord here</a>.
+			</div>
 			<br />
 			<h3>More testing options below</h3>
-			<div id="screen" style="color: #CCC; margin:10px 0;"><a href="./speedtest?screen" style="color: #CCC;">Test screen-sharing performance here</a></div>
+			<div id="screen"><a href="./speedtest?screen">Test screen-sharing performance here</a></div>
 			<div id="remote"></div>
 			<br />
 			Testing location: <select name="turnlist" id="turnlist" onchange="reloadTurn();" title="Select an exact location to test against">
@@ -95,6 +96,7 @@
 			  <option value="pol1">Warsaw, Poland</option>
 			</select>
 			<br /><br /><br />
+		</div>
 		</div>
 		
 
