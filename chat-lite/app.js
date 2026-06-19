@@ -95,6 +95,7 @@ const isObsDockView = typeof window !== 'undefined' && Boolean(window.obsstudio)
 const url = new URL(window.location.href);
 const focusParam = (url.searchParams.get('focus') || '').trim().toLowerCase();
 const liteViewParam = (url.searchParams.get('view') || url.searchParams.get('liteView') || '').trim().toLowerCase();
+const scopeParam = (url.searchParams.get('syncscope') || '').trim();
 const hasOpener = typeof window !== 'undefined' && Boolean(window.opener);
 const isActivityPopoutView = liteViewParam === 'activity' || (!liteViewParam && focusParam === 'activity' && hasOpener);
 const transparentParam = (url.searchParams.get('transparent') || '').trim().toLowerCase();
@@ -145,7 +146,7 @@ const overlayToggleInputs = overlayToggleDefs.reduce((acc, def) => {
   return acc;
 }, {});
 
-const sessionKey = 'session.currentId';
+const sessionKey = scopeParam ? `session.currentId.${scopeParam}` : 'session.currentId';
 const overlayToggleStorageKey = 'session.overlayOptions';
 const youtubeStreamingStorageKey = 'youtube.useStreaming';
 const debugPreferenceKey = 'debug.enabled';
@@ -797,6 +798,9 @@ function sessionUrl(sessionId, toggleState = overlayToggleState) {
   url.searchParams.set('view', 'activity');
   url.searchParams.set('embed', '1');
   url.searchParams.set('session', sessionId);
+  if (scopeParam) {
+    url.searchParams.set('syncscope', scopeParam);
+  }
   if (!toggleState || toggleState.transparent) {
     url.searchParams.set('transparent', '1');
   }
@@ -1853,6 +1857,21 @@ function applyObsDockLayout() {
   }
 }
 
+function updateAdaptiveActivityLayout() {
+  if (!document || !document.body) {
+    return;
+  }
+
+  const shouldAutoAdapt = isActivityPopoutView && !activityProfileView;
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+  const cardWidth = elements.activitySection?.clientWidth || window.innerWidth || 0;
+  const compact = shouldAutoAdapt && (viewportHeight <= 760 || cardWidth <= 520);
+  const inline = compact && cardWidth >= 440;
+
+  document.body.classList.toggle('activity-auto-compact', compact);
+  document.body.classList.toggle('activity-auto-inline', inline);
+}
+
 function applyActivityPopoutLayout() {
   if (!document || !document.body) {
     return;
@@ -1903,6 +1922,8 @@ function applyActivityPopoutLayout() {
   }
 
   document.title = 'Social Stream Ninja Lite - Activity Feed';
+  updateAdaptiveActivityLayout();
+  window.addEventListener('resize', updateAdaptiveActivityLayout, { passive: true });
 }
 
 function pickRandom(list) {

@@ -237,6 +237,32 @@ select {
     cursor: pointer;
 }
 
+#speedtest-legal-footer {
+    margin: 3rem auto 1rem auto;
+    padding-top: 0.75rem;
+    max-width: 800px;
+    text-align: center;
+    border-top: 1px solid #2b394e;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #8ca0b8;
+}
+
+#speedtest-legal-footer a {
+    color: #8ca0b8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+#speedtest-legal-footer a:hover {
+    color: #b7c8dd;
+}
+
+#speedtest-legal-footer .divider {
+    margin: 0 0.45rem;
+    color: #66788f;
+}
+
 @media (max-width: 600px) {
     h1 { font-size: 1.4rem; }
     #graphs { gap: 1rem; padding: 1rem; }

@@ -92,6 +92,8 @@ async function initAuthentication() {
 function showAuthUI(options = {}) {
   const authContainer = document.createElement('div');
   authContainer.id = 'auth-container';
+  const isDirectorAuthURL = session.director || urlParams.has("director") || urlParams.has("dir");
+  const canDisableSSO = isDirectorAuthURL && session.authMode && !session.universalToken && !session.decrypted && !options.hideDisableSSO;
   authContainer.innerHTML = `
     <div class="auth-modal">
       <h2>Sign in to VDO.Ninja</h2>
@@ -113,6 +115,7 @@ function showAuthUI(options = {}) {
       </div>
       
       ${(!session.requireAuth && !options.requireAuth) ? '<button onclick="skipAuth()" class="skip-auth">Continue without signing in</button>' : ''}
+      ${canDisableSSO ? '<div style="display:flex; align-items:center; gap:0.75rem; margin:1rem 0 0.25rem 0; color:var(--text-color-secondary, #aaa); font-size:0.8rem;"><span style="flex:1; border-top:1px solid var(--border-color, #444);"></span><span>or</span><span style="flex:1; border-top:1px solid var(--border-color, #444);"></span></div><button onclick="disableDirectorSSO()" class="skip-auth" style="margin-top:0.5rem;">Enter room without SSO</button><p style="font-size:0.78rem; line-height:1.35; opacity:0.85; margin:0.5rem 0 0 0;">Disables SSO for this director room. New guest links will not include SSO; older SSO guest invites may not join this room.</p>' : ''}
     </div>
   `;
   
@@ -132,6 +135,57 @@ function skipAuth() {
     authContainer.remove();
   }
   session.authSkipped = true;
+}
+
+// Disable SSO for a director URL and reload into the normal room path.
+function disableDirectorSSO() {
+  if (!session.director && !urlParams.has("director") && !urlParams.has("dir")) {
+    return;
+  }
+  session.authSkipped = true;
+  session.authMode = false;
+  session.requireAuth = false;
+  session.authImplicitRoomSecret = null;
+  session.universalToken = null;
+  session.universalViewToken = null;
+  session.pendingRoomSettings = null;
+  session.roomAlias = null;
+  session.realRoomId = null;
+  session.defaultPassword = session.sitePassword;
+  session.password = session.sitePassword;
+  session.hash = false;
+  try {
+    sessionStorage.removeItem('vdo_pending_room_settings');
+    sessionStorage.removeItem('vdo_pending_room_settings_recover');
+    sessionStorage.setItem('vdo_sso_disabled_notice', '1');
+  } catch (e) {}
+
+  try {
+    const authParams = ["auth", "requireauth", "authtoken", "universaltoken"];
+    const url = new URL(window.location.href);
+    authParams.forEach(param => url.searchParams.delete(param));
+    if (url.hash) {
+      var hashString = url.hash.slice(1);
+      var hashPrefix = hashString.charAt(0) === "?" ? "?" : "";
+      if (hashPrefix) {
+        hashString = hashString.slice(1);
+      }
+      hashString = hashString.replace(/\?\?/g, "?").replace(/\?/g, "&").replace(/^&/, "");
+      var hashParams = new URLSearchParams(hashString);
+      authParams.forEach(param => hashParams.delete(param));
+      var cleanHash = hashParams.toString();
+      url.hash = cleanHash ? (hashPrefix || "?") + cleanHash : "";
+    }
+    try {
+      window.removeEventListener("beforeunload", confirmUnload);
+    } catch (e2) {}
+    window.location.replace(url.toString());
+  } catch (e) {
+    try {
+      window.removeEventListener("beforeunload", confirmUnload);
+    } catch (e2) {}
+    window.location.reload();
+  }
 }
 
 // Sign out of SSO

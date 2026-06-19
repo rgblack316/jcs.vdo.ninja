@@ -1131,6 +1131,112 @@ body.activity-popout.activity-profile-minimal .activity-item__message {
   font-size: 0.92rem;
 }
 
+body.activity-popout.activity-auto-compact #activity {
+  padding: 0.2rem;
+}
+
+body.activity-popout.activity-auto-compact #activity .activity__log {
+  padding: 0;
+  gap: 0.3rem;
+}
+
+body.activity-popout.activity-auto-compact .activity-item {
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+}
+
+body.activity-popout.activity-auto-compact .activity-item::before {
+  border-radius: 12px;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__avatar--fallback img {
+  width: 22px;
+  height: 22px;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__meta {
+  gap: 0.35rem;
+  font-size: 0.72rem;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__platform-icon {
+  width: 16px;
+  height: 16px;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__name {
+  font-size: 0.95rem;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__subtitle {
+  font-size: 0.78rem;
+}
+
+body.activity-popout.activity-auto-compact .activity-chip {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.68rem;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__message {
+  padding: 0.15rem 0;
+  font-size: 0.92rem;
+  line-height: 1.32;
+}
+
+body.activity-popout.activity-auto-compact .activity-item__media {
+  max-height: 120px;
+  border-radius: 10px;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__body {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "headline meta"
+    "subtitle subtitle"
+    "chips chips"
+    "message message"
+    "media media";
+  column-gap: 0.7rem;
+  row-gap: 0.3rem;
+  align-items: start;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__headline {
+  grid-area: headline;
+  min-width: 0;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__meta {
+  grid-area: meta;
+  justify-self: end;
+  align-self: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__subtitle {
+  grid-area: subtitle;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__chips {
+  grid-area: chips;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__message {
+  grid-area: message;
+}
+
+body.activity-popout.activity-auto-inline .activity-item__media {
+  grid-area: media;
+}
+
 body.activity-popout.activity-positioned main.layout {
   width: 100%;
   max-width: none;

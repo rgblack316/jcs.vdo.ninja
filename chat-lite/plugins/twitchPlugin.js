@@ -25,7 +25,8 @@ const TWITCH_SCOPES = [
 ];
 
 const TMI_SOURCES = [
-  '../thirdparty/tmi.js'
+  './vendor/tmi.js',
+  './vendor/tmi-1.8.5.min.js'
 ];
 
 let tmiLoaderPromise = null;

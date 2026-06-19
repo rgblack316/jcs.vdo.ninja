@@ -4,6 +4,35 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>VDO.Ninja PTZ Controller</title>
+	<meta
+		name="description"
+		content="Control compatible PTZ cameras in VDO.Ninja with fullscreen preview, remote camera refresh, presets, talkback, and sender recovery tools."
+	/>
+	<meta
+		name="keywords"
+		content="VDO.Ninja, PTZ controller, remote camera control, pan tilt zoom, talkback, livestream camera"
+	/>
+	<meta name="robots" content="index,follow,max-image-preview:large" />
+	<meta name="theme-color" content="#0f172a" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="VDO.Ninja PTZ Controller" />
+	<meta
+		property="og:description"
+		content="Fullscreen PTZ control surface for VDO.Ninja with presets, preview transforms, talkback, and remote camera recovery tools."
+	/>
+	<meta property="og:site_name" content="VDO.Ninja" />
+	<meta property="og:image" content="https://vdo.ninja/media/icon-512x512.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="VDO.Ninja PTZ Controller" />
+	<meta
+		name="twitter:description"
+		content="Remote PTZ camera control for VDO.Ninja with fullscreen preview, presets, two-way audio, and recovery actions."
+	/>
+	<meta name="twitter:image" content="https://vdo.ninja/media/icon-512x512.png" />
+	<link rel="icon" href="/media/favicon.ico" sizes="any" />
+	<link rel="icon" type="image/png" sizes="32x32" href="/media/favicon-32x32.png" />
+	<link rel="icon" type="image/png" sizes="16x16" href="/media/favicon-16x16.png" />
+	<link rel="apple-touch-icon" href="/media/icon-192x192.png" />
 		<style>
 			:root {
 				--bg: #0f172a;
@@ -440,8 +469,9 @@
 					</label>
 					<label class="checkline">
 						<input id="talkbackToggle" type="checkbox" />
-						Enable Controller Talkback to Sender
+						Enable controller microphone talkback (two-way audio)
 					</label>
+					<div class="small">Talkback uses the generated sender link and will ask this controller page for microphone access.</div>
 				</div>
 				<div class="row" style="margin-top:10px;">
 					<button id="connectBtn" class="primary">Connect Viewer</button>
@@ -449,7 +479,7 @@
 					<button id="togglePreviewBtn">Toggle Preview</button>
 					<button id="toggleControlsBtn">Hide Controls Pane</button>
 					<button id="stageModeBtn">Stage Mode</button>
-					<button id="fullscreenBtn">Browser Fullscreen</button>
+					<button id="fullscreenBtn">PTZ Fullscreen</button>
 					<span class="small">If keyboard shortcuts do not respond, click anywhere on this page first.</span>
 				</div>
 				<div class="row sender-row" style="margin-top:8px;">
@@ -500,8 +530,8 @@
 						<div class="control-title">Step + Repeat</div>
 					<div class="grid">
 						<label>
-							Base Step (default 0.05)
-							<input id="baseStepInput" type="number" min="0.001" max="1" step="0.001" value="0.05" />
+							Base Step (default 0.005)
+							<input id="baseStepInput" type="number" min="0.001" max="1" step="0.001" value="0.005" />
 						</label>
 						<label>
 							Repeat Interval (ms)
@@ -514,7 +544,7 @@
 							Force fine mode (Alt equivalent)
 						</label>
 						<label style="display:flex;align-items:center;gap:8px;">
-							<input id="panInvertToggle" type="checkbox" />
+							<input id="panInvertToggle" type="checkbox" checked />
 							Invert pan
 						</label>
 						<label style="display:flex;align-items:center;gap:8px;">
@@ -553,6 +583,17 @@
 				</div>
 
 				<div class="control-card">
+					<div class="control-title">Camera Recovery</div>
+					<div class="split">
+						<button id="refreshCameraBtn">Refresh Camera</button>
+						<button id="recoverStreamBtn">Refresh Camera + Link</button>
+					</div>
+					<div class="row" style="margin-top:8px;">
+						<span class="small">Remote recovery still requires valid <code>&amp;remote</code> authorization on the sender.</span>
+					</div>
+				</div>
+
+				<div class="control-card">
 					<div class="control-title">Presets</div>
 					<div class="preset-grid">
 						<button data-preset-recall="1">Recall 1</button>
@@ -562,7 +603,7 @@
 						<button data-preset-save="1">Save 1</button>
 						<button data-preset-save="2">Save 2</button>
 						<button data-preset-save="3">Save 3</button>
-						<button id="saveHomeBtn">Save Home</button>
+						<div class="small" style="align-self:center;">0 = home. Shift+1/2/3 = save.</div>
 					</div>
 				</div>
 
@@ -598,7 +639,7 @@
 
 				<div class="panel preview-panel" id="previewPanel">
 					<div class="row" style="margin-bottom:8px;">
-						<button id="previewFullscreenBtn">Fullscreen Preview</button>
+						<button id="previewFullscreenBtn">Feed Fullscreen</button>
 					</div>
 					<div class="preview-stage" id="previewStage">
 						<div id="previewTransform" class="preview-transform">
@@ -613,9 +654,10 @@
 				<details>
 					<summary>Keyboard shortcuts</summary>
 					<p class="small">
-						Arrows = pan/tilt, +/- = zoom, Ctrl/Cmd + +/- = focus, Numpad 1/2/3 = preset recall, 1/2/3 = preset recall, Numpad 0 / 0 = home.
+						Arrows = pan/tilt, +/- = zoom, Ctrl/Cmd + +/- = focus, 1/2/3 or Numpad 1/2/3 = preset recall, Shift+1/2/3 = preset save, Numpad 0 / 0 = home.
 						Hold Alt for fine steps. P = toggle preview drag/wheel overlay. M = mirror preview, R / Shift+R = rotate preview, F = stage mode toggle.
-						Ctrl/Cmd+M = mirror remote, Ctrl/Cmd+R = rotate remote, Ctrl/Cmd+Shift+R = reset remote rotation.
+						A = reset autofocus. Ctrl/Cmd+M = mirror remote, Ctrl/Cmd+R = rotate remote, Ctrl/Cmd+Shift+R = reset remote rotation.
+						Use the camera recovery card to refresh the sender camera or request its available camera list without opening the director UI.
 						Use "Invert pan" or "Invert tilt" if your camera responds opposite to expected direction.
 					</p>
 				</details>
@@ -651,7 +693,9 @@
 				remoteMirror: false,
 				copyButtonTimer: null,
 				talkbackID: Math.random().toString(36).substring(2, 10),
-				talkbackActive: false
+				talkbackActive: false,
+				peerConnected: false,
+				pendingPreset: null
 			};
 
 			var refs = {
@@ -697,7 +741,8 @@
 				reloadBtn: document.getElementById("reloadBtn"),
 				togglePreviewBtn: document.getElementById("togglePreviewBtn"),
 				autofocusBtn: document.getElementById("autofocusBtn"),
-				saveHomeBtn: document.getElementById("saveHomeBtn"),
+				refreshCameraBtn: document.getElementById("refreshCameraBtn"),
+				recoverStreamBtn: document.getElementById("recoverStreamBtn"),
 				dragPad: document.getElementById("dragPad"),
 				wheelPad: document.getElementById("wheelPad"),
 				panAbs: document.getElementById("panAbs"),
@@ -709,6 +754,13 @@
 				zoomAbsValue: document.getElementById("zoomAbsValue"),
 				focusAbsValue: document.getElementById("focusAbsValue"),
 				applyAbsBtn: document.getElementById("applyAbsBtn")
+			};
+
+			var HOME_ABS_STATE = {
+				pan: 0,
+				tilt: 0,
+				zoom: 0,
+				focus: 0.5
 			};
 
 			function setStatus(msg, isError) {
@@ -875,7 +927,7 @@
 			function getBaseStep() {
 				var step = parseFloat(refs.baseStepInput.value);
 				if (isNaN(step)) {
-					step = 0.05;
+					step = 0.005;
 				}
 				return Math.max(0.001, Math.min(1, step));
 			}
@@ -924,8 +976,8 @@
 			}
 
 			function storageKey() {
-				var remote = refs.remoteInput.value.trim() || "none";
-				var target = normalizeTarget();
+				var remote = refs.remoteInput.value.trim() || (state.remoteFlagPresent ? "remote" : "none");
+				var target = refs.targetInput.value.trim() || getTemplateTarget() || state.inferredTarget || "1";
 				return "vdoninja_ptz_presets_" + remote + "_" + target;
 			}
 
@@ -998,7 +1050,14 @@
 			function loadPresets() {
 				try {
 					var raw = localStorage.getItem(storageKey());
-					return raw ? JSON.parse(raw) : {};
+					var presets = raw ? JSON.parse(raw) : {};
+					if (!presets || typeof presets !== "object") {
+						return {};
+					}
+					if ("home" in presets) {
+						delete presets.home;
+					}
+					return presets;
 				} catch (e) {
 					return {};
 				}
@@ -1006,9 +1065,55 @@
 
 			function savePresets(presets) {
 				try {
+					if (!presets || typeof presets !== "object") {
+						presets = {};
+					}
+					if ("home" in presets) {
+						delete presets.home;
+					}
 					localStorage.setItem(storageKey(), JSON.stringify(presets || {}));
 				} catch (e) {
 					setStatus("Failed to save presets in localStorage.", true);
+				}
+			}
+
+			function savePreset(slot) {
+				var presets = loadPresets();
+				presets[slot] = getCurrentAbsState();
+				savePresets(presets);
+				setStatus("Saved preset " + slot + ".");
+			}
+
+			function recallPreset(slot) {
+				var presets = loadPresets();
+				if (!presets[slot]) {
+					setStatus("Preset " + slot + " is not saved yet.", true);
+					return;
+				}
+				if (!state.peerConnected) {
+					state.pendingPreset = { state: presets[slot], label: slot };
+					setStatus("Peer not connected yet. Preset " + slot + " queued and will apply when ready.");
+					return;
+				}
+				applyAbsoluteState(presets[slot]);
+				setStatus("Recalled preset " + slot + ".");
+			}
+
+			function resetAutofocus() {
+				if (sendTargetAction("ptzAutofocus", true)) {
+					setStatus("Autofocus reset requested.");
+				}
+			}
+
+			function refreshRemoteCamera() {
+				if (sendTargetAction("refreshVideo", true)) {
+					setStatus("Requested remote camera refresh.");
+				}
+			}
+
+			function recoverRemoteStream() {
+				if (sendTargetAction("refreshAll", true)) {
+					setStatus("Requested remote camera + connection recovery.");
 				}
 			}
 
@@ -1201,6 +1306,7 @@
 					sendTargetAction("ptzZoom", ptz.zoom, "abs");
 				}
 				if (typeof ptz.focus === "number") {
+					sendTargetAction("ptzAutofocus", false);
 					refs.focusAbs.value = ptz.focus;
 					sendTargetAction("ptzFocus", ptz.focus, "abs");
 				}
@@ -1208,13 +1314,41 @@
 			}
 
 			function recallHome() {
-				var presets = loadPresets();
-				if (presets.home) {
-					applyAbsoluteState(presets.home);
+				if (!state.peerConnected) {
+					state.pendingPreset = { state: HOME_ABS_STATE, label: "home" };
+					setStatus("Peer not connected yet. Home position queued and will apply when ready.");
 					return;
 				}
+				applyAbsoluteState(HOME_ABS_STATE);
+				setStatus("Recalled home position (0).");
+			}
 
-				applyAbsoluteState({ pan: 0, tilt: 0, zoom: 0, focus: 0.5 });
+			function syncTalkbackFrame() {
+				var tb = document.getElementById("talkbackFrame");
+				if (!refs.talkbackToggle.checked) {
+					if (tb) {
+						tb.src = "about:blank";
+					}
+					state.talkbackActive = false;
+					return false;
+				}
+
+				var talkbackUrl = new URL("/", window.location.origin);
+				talkbackUrl.searchParams.set("push", state.talkbackID);
+				talkbackUrl.searchParams.set("novideo", "");
+				talkbackUrl.searchParams.set("autoplay", "");
+				talkbackUrl.searchParams.set("cleanoutput", "");
+
+				if (!tb) {
+					tb = document.createElement("iframe");
+					tb.id = "talkbackFrame";
+					tb.style.display = "none";
+					tb.allow = "autoplay;microphone;";
+					document.body.appendChild(tb);
+				}
+				tb.src = talkbackUrl.toString();
+				state.talkbackActive = true;
+				return true;
 			}
 
 			function connectViewer() {
@@ -1223,6 +1357,8 @@
 					setStatus("Enter a valid viewer URL or stream ID first.", true);
 					return;
 				}
+				state.peerConnected = false;
+				state.pendingPreset = null;
 				refs.viewerFrame.src = url;
 
 				// Try to unlock audio
@@ -1234,27 +1370,49 @@
 					}).catch(function(){});
 				} catch(e){}
 
-				if (refs.talkbackToggle.checked) {
-					var talkbackUrl = new URL("/", window.location.origin);
-					talkbackUrl.searchParams.set("push", state.talkbackID);
-					talkbackUrl.searchParams.set("novideo", "");
-					talkbackUrl.searchParams.set("autoplay", "");
-					talkbackUrl.searchParams.set("cleanoutput", "");
-					
-					var tb = document.getElementById("talkbackFrame");
-					if (!tb) {
-						tb = document.createElement("iframe");
-						tb.id = "talkbackFrame";
-						tb.style.display = "none";
-						tb.allow = "autoplay;microphone;";
-						document.body.appendChild(tb);
-					}
-					tb.src = talkbackUrl.toString();
-					setStatus("Connecting viewer and talkback...");
+				if (syncTalkbackFrame()) {
+					setStatus("Connecting viewer and talkback. Use the generated sender link for two-way audio.");
 				} else {
-					var tb = document.getElementById("talkbackFrame");
-					if (tb) tb.src = "about:blank";
 					setStatus("Connecting iframe viewer...");
+				}
+			}
+
+			function onPeerConnected() {
+				if (state.peerConnected) {
+					return;
+				}
+				state.peerConnected = true;
+				setStatus("Peer connected. PTZ controls are ready.");
+				if (state.pendingPreset) {
+					var pending = state.pendingPreset;
+					state.pendingPreset = null;
+					applyAbsoluteState(pending.state);
+					setStatus("Applied queued preset " + pending.label + ".");
+				}
+			}
+
+			function handleViewerMessage(event) {
+				if (!event || !event.data || typeof event.data !== "object") {
+					return;
+				}
+				if (refs.viewerFrame && refs.viewerFrame.contentWindow && event.source && event.source !== refs.viewerFrame.contentWindow) {
+					return;
+				}
+
+				if (event.data.action === "new-stream-added" || event.data.action === "new-video-track-added" || event.data.action === "new-audio-track-added") {
+					onPeerConnected();
+				}
+
+				if (event.data.remoteStats && event.data.streamID) {
+					onPeerConnected();
+				}
+
+				if (event.data.action === "rejected") {
+					if (event.data.value === "refreshVideo") {
+						setStatus("The sender rejected the camera refresh request.", true);
+					} else if (event.data.value === "refreshAll") {
+						setStatus("The sender rejected the camera recovery request.", true);
+					}
 				}
 			}
 
@@ -1329,21 +1487,31 @@
 					setStatus(refs.previewPadToggle.checked ? "Preview drag/wheel PTZF enabled." : "Preview drag/wheel PTZF disabled.");
 					return;
 				}
+				if (!ctrlOrMeta && (key === "a" || key === "A")) {
+					event.preventDefault();
+					resetAutofocus();
+					return;
+				}
 
 				if (code === "Numpad0" || key === "0") {
 					event.preventDefault();
 					recallHome();
 					return;
 				}
-				if (code === "Numpad1" || key === "1" || code === "Numpad2" || key === "2" || code === "Numpad3" || key === "3") {
+				if (code === "Digit1" || code === "Digit2" || code === "Digit3" || code === "Numpad1" || code === "Numpad2" || code === "Numpad3" || key === "1" || key === "2" || key === "3") {
 					event.preventDefault();
-					var slot = key;
-					if (code.startsWith("Numpad")) slot = code.replace("Numpad", "");
-					var presets = loadPresets();
-					if (presets[slot]) {
-						applyAbsoluteState(presets[slot]);
+					var slot = "";
+					if (code === "Digit1" || code === "Numpad1" || key === "1") {
+						slot = "1";
+					} else if (code === "Digit2" || code === "Numpad2" || key === "2") {
+						slot = "2";
 					} else {
-						setStatus("Preset " + slot + " is not saved yet.", true);
+						slot = "3";
+					}
+					if (event.shiftKey && code.indexOf("Digit") === 0) {
+						savePreset(slot);
+					} else {
+						recallPreset(slot);
 					}
 					return;
 				}
@@ -1488,6 +1656,8 @@
 				refs.connectBtn.addEventListener("click", connectViewer);
 				refs.reloadBtn.addEventListener("click", function () {
 					if (refs.viewerFrame.src) {
+						state.peerConnected = false;
+						state.pendingPreset = null;
 						refs.viewerFrame.src = refs.viewerFrame.src;
 						setStatus("Viewer reloading...");
 						try {
@@ -1544,6 +1714,8 @@
 				refs.mirrorRemoteBtn.addEventListener("click", toggleRemoteMirror);
 				refs.rotateRemoteBtn.addEventListener("click", stepRemoteRotate);
 				refs.rotateRemoteResetBtn.addEventListener("click", resetRemoteRotate);
+				refs.refreshCameraBtn.addEventListener("click", refreshRemoteCamera);
+				refs.recoverStreamBtn.addEventListener("click", recoverRemoteStream);
 				refs.previewPadToggle.addEventListener("change", function () {
 					setPreviewPadEnabled(refs.previewPadToggle.checked);
 				});
@@ -1557,7 +1729,7 @@
 				document.addEventListener("keydown", markStageActivity);
 
 				refs.viewerFrame.addEventListener("load", function () {
-					setStatus("Viewer iframe loaded. Controls are active.");
+					setStatus("Viewer iframe loaded. Waiting for peer connection...");
 				});
 
 				document.querySelectorAll("[data-hold-control]").forEach(function (button) {
@@ -1572,41 +1744,22 @@
 					});
 				});
 
-				refs.autofocusBtn.addEventListener("click", function () {
-					sendTargetAction("ptzAutofocus", true);
-				});
+				refs.autofocusBtn.addEventListener("click", resetAutofocus);
 
 				document.querySelectorAll("[data-preset-save]").forEach(function (button) {
 					button.addEventListener("click", function () {
-						var slot = button.dataset.presetSave;
-						var presets = loadPresets();
-						presets[slot] = getCurrentAbsState();
-						savePresets(presets);
-						setStatus("Saved preset " + slot + ".");
+						savePreset(button.dataset.presetSave);
 					});
 				});
 
 				document.querySelectorAll("[data-preset-recall]").forEach(function (button) {
 					button.addEventListener("click", function () {
-						var slot = button.dataset.presetRecall;
-						var presets = loadPresets();
-						if (!presets[slot]) {
-							setStatus("Preset " + slot + " is not saved yet.", true);
-							return;
-						}
-						applyAbsoluteState(presets[slot]);
+						recallPreset(button.dataset.presetRecall);
 					});
 				});
 
 				document.querySelectorAll("[data-home]").forEach(function (button) {
 					button.addEventListener("click", recallHome);
-				});
-
-				refs.saveHomeBtn.addEventListener("click", function () {
-					var presets = loadPresets();
-					presets.home = getCurrentAbsState();
-					savePresets(presets);
-					setStatus("Saved home preset.");
 				});
 
 				refs.panAbs.addEventListener("input", updateAbsLabels);
@@ -1626,7 +1779,20 @@
 				refs.remoteInput.addEventListener("input", refreshSenderTemplate);
 				refs.senderNoPreviewToggle.addEventListener("change", refreshSenderTemplate);
 				refs.senderNoVideoInToggle.addEventListener("change", refreshSenderTemplate);
-				refs.talkbackToggle.addEventListener("change", refreshSenderTemplate);
+				refs.talkbackToggle.addEventListener("change", function () {
+					refreshSenderTemplate();
+					if (refs.talkbackToggle.checked) {
+						if (refs.viewerFrame.getAttribute("src")) {
+							syncTalkbackFrame();
+							setStatus("Talkback enabled. Use the generated sender link and allow microphone access here.");
+						} else {
+							setStatus("Talkback enabled. Use the generated sender link, then connect the viewer to start two-way audio.");
+						}
+					} else {
+						syncTalkbackFrame();
+						setStatus("Talkback disabled.");
+					}
+				});
 				refs.muteViewerAudioToggle.addEventListener("change", function () {
 					setStatus(refs.muteViewerAudioToggle.checked ? "Embed audio will be muted in light mode." : "Embed audio stays enabled in light mode.");
 				});
@@ -1643,6 +1809,7 @@
 					state.altDown = false;
 				});
 
+				window.addEventListener("message", handleViewerMessage);
 				document.addEventListener("keydown", handleKeyboardDown);
 				document.addEventListener("keyup", handleKeyboardUp);
 			}

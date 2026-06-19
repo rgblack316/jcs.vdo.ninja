@@ -274,12 +274,15 @@
                     <div id="pptbackbutton" onmousedown="event.preventDefault(); event.stopPropagation();" title="Go back a slide" aria-label="Back a slide" alt="Go back a slide" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="gobackSlide()" class="hidden float red" style="cursor: pointer;">
                         <i class="toggleSize las la-chevron-left" style="position: relative; right: 1px;" aria-hidden="true"></i>
                     </div>
-                    <div id="pptnextbutton" onmousedown="event.preventDefault(); event.stopPropagation();" title="Next slide" aria-label="Next slide" alt="Next slide" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="nextSlide()" class="hidden float" style="cursor: pointer;">
+                    <div id="pptnextbutton" onmousedown="event.preventDefault(); event.stopPropagation();" title="Next slide" aria-label="Next slide" alt="Next slide" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="nextSlide()" class="hidden float green" style="cursor: pointer;">
                         <i class="toggleSize las la-chevron-right" style="position: relative; right: 1px;" aria-hidden="true"></i>
                     </div>
                     
                     <div id="recordLocalbutton" onmousedown="event.preventDefault(); event.stopPropagation();"  data-state="0" title="Record your stream to disk" aria-label="Record your stream to disk" alt="Record your stream to disk" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="recordLocalVideoToggle();" class="hidden float" style="cursor: pointer;">
                         <i class="toggleSize las la-dot-circle" style="position: relative;" aria-hidden="true"></i>
+                    </div>
+                    <div id="sessionMarkerButton" onmousedown="event.preventDefault(); event.stopPropagation();" title="Drop a session marker" aria-label="Drop a session marker" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="dropSessionMarker();" class="hidden float" style="cursor: pointer;">
+                        <i class="toggleSize las la-map-marker-alt" style="position: relative;" aria-hidden="true"></i>
                     </div>
                     <div id="recordLocalScreenbutton" onmousedown="event.preventDefault(); event.stopPropagation();"  data-state="0" title="Stop screen share recording" aria-label="Stop screen share recording" alt="Stop screen recording" tabindex="2" role="button" aria-pressed="false" onkeyup="enterPressedClick(event,this);" onclick="recordLocalScreenStopRecord();" class="hidden float" style="cursor: pointer;">
                         <small>Stop<br>Screen<br>Record</small>
@@ -2158,6 +2161,12 @@
 					</a>
 				</li>
 				<li class="context-menu__item">
+					<a href="#" class="context-menu__link" data-action="DrawOnVideo">
+						<i class="las la-pencil-alt"></i>
+						<span data-translate="draw-on-video">Toggle draw mode</span>
+					</a>
+				</li>
+				<li class="context-menu__item">
 					<a href="#" class="context-menu__link" data-action="ShowStats">
 						<i class="las la-external-link"></i>
 						<span data-translate="show-video-stats">Show Stats</span>
@@ -2287,7 +2296,7 @@
 				<span style="margin: 5px 0 0 0;display:block">	
 					<button data-action-type="remote-global-record" title="Record all the guests" onclick="remoteGlobalRecordStart();">
 						<i class="las la-compact-disc"></i>
-						<span data-translate="remote-global-record">Remote record - start all</span>
+						<span data-translate="remote-global-record-start">Remote record - start all</span>
 					</button>
 					<button data-action-type="remote-global-record" title="Record all the guests" onclick="remoteGlobalRecordStop();">
 						<i class="las la-square"></i>
@@ -2305,8 +2314,8 @@
 				<span></span>
 				<h3 data-translate="buffer-settings">Buffer Settings</h3><br />
 				<div>
-					<span data-translate="change-playout-buffer">Buffer (ms): </span><input style='margin-left: 3px;padding: 2px;width: 60px;' type='number' min='0' max='15000' /><br />
-					<input type='range' min='0' max='15000' /><br />
+					<span data-translate="change-playout-buffer">Buffer (ms): </span><input style='margin-left: 3px;padding: 2px;width: 60px;' type='number' min='0' max='180000' /><br />
+					<input type='range' min='0' max='180000' /><br />
 				</div>
 			</div>
 		</div>
@@ -2545,21 +2554,25 @@
 			<br />
 			<ul id="languagesList" style="list-style-type: none; margin: 0;">
 				<li><a onclick="changeLg('en');toggle(document.getElementById('languages'));" style="cursor: pointer;">English</a></li>
-				<li><a onclick="changeLg('ru');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Moscow">Russian</a></li>
-				<li><a onclick="changeLg('fr');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Paris">French</a></li>
-				<li><a onclick="changeLg('pt');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Lisbon;">Portuguese (Europe)</a></li>
-				<li><a onclick="changeLg('pt-br');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="America/Araguaina">Portuguese (Brazil)</a></li>
-				<li><a onclick="changeLg('it');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Rome">Italian</a></li>
-				<li><a onclick="changeLg('de');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Berlin">German</a></li>
-				<li><a onclick="changeLg('es');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Madrid">Spanish</a></li>
-				<li><a onclick="changeLg('nl');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Amsterdam">Dutch</a></li>
-				<li><a onclick="changeLg('tr');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Istanbul">Turkish</a></li>
-				<li><a onclick="changeLg('ja');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/Tokyo">Japanese</a></li>
-				<li><a onclick="changeLg('cn');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/China">Chinese (中文)</a></li>
-				<li><a onclick="changeLg('cs');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Prague">Czech</a></li>
-				<li><a onclick="changeLg('uk');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Ukraine">Ukrainian</a></li>
-				<li><a onclick="changeLg('eu');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Euskara">Basque</a></li>
-				<li><a onclick="changeLg('pig');toggle(document.getElementById('languages'));" style="cursor: pointer;">Pig Latin</a></li>
+				<li><a onclick="changeLg('de');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Berlin">Deutsch</a></li>
+				<li><a onclick="changeLg('fr');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Paris">français</a></li>
+				<li><a onclick="changeLg('it');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Rome">italiano</a></li>
+				<li><a onclick="changeLg('es');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Madrid">español - España</a></li>
+				<li><a onclick="changeLg('pl');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Warsaw">polski</a></li>
+				<li><a onclick="changeLg('pt');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Lisbon;">português do Portugal</a></li>
+				<li><a onclick="changeLg('pt-br');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="America/Araguaina">português do Brasil</a></li>
+				<li><a onclick="changeLg('nl');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Amsterdam">Nederlands</a></li>
+				<li><a onclick="changeLg('tr');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Istanbul">Türkçe</a></li>
+				<li><a onclick="changeLg('ja');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/Tokyo">日本語</a></li>
+				<li><a onclick="changeLg('ar');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-rtl="true" data-tz="Asia/Arabic">العربية</a></li>
+				<li><a onclick="changeLg('cn');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/China">简体中文 (中国大陆)</a></li>
+				<li><a onclick="changeLg('cs');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Prague">čeština</a></li>
+				<li><a onclick="changeLg('ru');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Moscow">русский</a></li>
+				<li><a onclick="changeLg('uk');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Ukraine">українська</a></li>
+				<li><a onclick="changeLg('eu');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Europe/Euskara">euskara</a></li>
+				<li><a onclick="changeLg('kr');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/Korea">한국어</a></li>
+				<li><a onclick="changeLg('pig');toggle(document.getElementById('languages'));" style="cursor: pointer;">Igpay Atinlay</a></li>
+				<li><a onclick="changeLg('hi');toggle(document.getElementById('languages'));" style="cursor: pointer;" data-tz="Asia/India">हिन्दी</a></li>
 			</ul>
 			<br style="line-height: 0.3;" />
 			<i class="las la-exclamation-circle"></i><a href="https://github.com/steveseguin/vdoninja/tree/master/translations" target="_blank" rel="noopener noreferrer" data-translate='add-more-here'>Add More Here!</a>

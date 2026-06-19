@@ -72,6 +72,48 @@ async function main() {
 		return parsedUrl.href;
 	}
 
+	function deriveAutoWhepShareUrl(rawWhipUrl) {
+		if (!rawWhipUrl || typeof rawWhipUrl !== "string") {
+			return false;
+		}
+		let parsedUrl = null;
+		try {
+			parsedUrl = new URL(rawWhipUrl.trim());
+		} catch (e) {
+			return false;
+		}
+		if (!parsedUrl || !parsedUrl.pathname) {
+			return false;
+		}
+
+		const hostname = parsedUrl.hostname || "";
+		const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+		if (hostname.endsWith(".cloudflarestream.com")) {
+			if ((pathParts.length >= 3) && (pathParts[0].length === 65) && (pathParts[1].toLowerCase() === "webrtc") && (pathParts[2].toLowerCase() === "publish")) {
+				parsedUrl.pathname = "/" + pathParts[0].slice(33, 65) + "/webRTC/play";
+				parsedUrl.search = "";
+				parsedUrl.hash = "";
+				return normalizeWhepShareUrl(parsedUrl.href);
+			}
+			return false;
+		}
+
+		if (/\/whip\/?$/i.test(parsedUrl.pathname)) {
+			parsedUrl.pathname = parsedUrl.pathname.replace(/\/whip\/?$/i, "/whep");
+			return normalizeWhepShareUrl(parsedUrl.href);
+		}
+		if (/\/webRTC\/publish\/?$/i.test(parsedUrl.pathname)) {
+			parsedUrl.pathname = parsedUrl.pathname.replace(/\/webRTC\/publish\/?$/i, "/webRTC/play");
+			return normalizeWhepShareUrl(parsedUrl.href);
+		}
+		if (/\/publish\/?$/i.test(parsedUrl.pathname)) {
+			parsedUrl.pathname = parsedUrl.pathname.replace(/\/publish\/?$/i, "/play");
+			return normalizeWhepShareUrl(parsedUrl.href);
+		}
+
+		return false;
+	}
+
 	function getTranslationOrFallback(key, fallbackText) {
 		try {
 			const translated = getTranslation(key);
@@ -1548,7 +1590,15 @@ async function main() {
 	}
 	
 	if (urlParams.has("drawing")) {
-		session.allowDrawing = urlParams.get("drawing") || true;
+		const drawingValue = (urlParams.get("drawing") || "").toLowerCase();
+		session.allowDrawing = !(drawingValue === "0" || drawingValue === "false" || drawingValue === "off");
+	}
+	if (urlParams.has("drawingrelay") || urlParams.has("shareddrawing")) {
+		const relayValue = (urlParams.get("drawingrelay") || urlParams.get("shareddrawing") || "").toLowerCase();
+		session.drawingRelay = !(relayValue === "0" || relayValue === "false" || relayValue === "off");
+	}
+	if (urlParams.has("nodrawingrelay") || urlParams.has("noshareddrawing")) {
+		session.drawingRelay = false;
 	}
 	
 	if (urlParams.has("nohistory")) {
@@ -2557,7 +2607,8 @@ async function main() {
 	}
 
 	if (urlParams.has("cover")) {
-		session.cover = urlParams.get("cover") || true;
+		var coverVal = urlParams.get("cover");
+		session.cover = (coverVal == 2) ? 2 : true;
 		document.documentElement.style.setProperty("--fit-style", "cover");
 		document.documentElement.style.setProperty("--myvideo-max-width", "100vw");
 		document.documentElement.style.setProperty("--myvideo-width", "100vw");
@@ -3121,7 +3172,14 @@ async function main() {
 	if (urlParams.has("cccolored") || urlParams.has("cccoloured") || urlParams.has("coloredcc") || urlParams.has("colorcc") || urlParams.has("cccolor")) {
 		session.ccColored = true;
 	}
-	
+
+	if (urlParams.has("sessionlog") || urlParams.has("slog") || urlParams.has("sessionmarkers")) {
+		session.sessionLog = true;
+	}
+
+	if (urlParams.has("sessionlogtranscript") || urlParams.has("slogtranscript") || urlParams.has("slogt")) {
+		session.sessionLogTranscript = true;
+	}
 
 	if (urlParams.has("base64css") || urlParams.has("b64css") || urlParams.has("cssbase64") || urlParams.has("cssb64")) {
 		try {
@@ -4657,9 +4715,10 @@ async function main() {
 		}
 	}
 	
-	if (urlParams.has("holdercolor")) {
+	const holderColorParam = ["holdercolor", "videobg", "videobgcolor", "videobackground", "videobackgroundcolor", "holderbg", "holderbgcolor"].find(param => urlParams.has(param));
+	if (holderColorParam) {
 		try {
-			session.holderColor = urlParams.get("holdercolor") || session.borderColor || "#000";
+			session.holderColor = urlParams.get(holderColorParam) || session.borderColor || "#000";
 			if (parseInt(session.holderColor) == session.holderColor){
 				session.holderColor = "#"+session.holderColor;
 			}
@@ -5093,15 +5152,56 @@ async function main() {
 		session.alpha = true;
 	}
 
+	if (urlParams.has("viewchroma") || urlParams.has("vchroma")) {
+		session.viewChroma = true;
+		session.viewChromaColor = urlParams.get("viewchroma") || urlParams.get("vchroma") || "0f0";
+
+		var viewChromaThreshold = parseInt(urlParams.get("viewchromathreshold") || urlParams.get("vchromathreshold") || urlParams.get("viewchromathresh") || urlParams.get("vchromathresh"));
+		if (Number.isFinite(viewChromaThreshold)) {
+			session.viewChromaThreshold = viewChromaThreshold;
+		}
+
+		var viewChromaSmoothing = parseInt(urlParams.get("viewchromasmoothing") || urlParams.get("vchromasmoothing") || urlParams.get("viewchromasmooth") || urlParams.get("vchromasmooth"));
+		if (Number.isFinite(viewChromaSmoothing)) {
+			session.viewChromaSmoothing = viewChromaSmoothing;
+		}
+
+		session.viewChromaHideSource = true;
+		if (urlParams.has("viewchromahide") || urlParams.has("viewchromahidesource") || urlParams.has("vchromahide") || urlParams.has("vchromahidesource")) {
+			var viewChromaHideSource = (urlParams.get("viewchromahide") || urlParams.get("viewchromahidesource") || urlParams.get("vchromahide") || urlParams.get("vchromahidesource") || "1").toLowerCase();
+			session.viewChromaHideSource = !(viewChromaHideSource === "0" || viewChromaHideSource === "false" || viewChromaHideSource === "off");
+		}
+	}
+
 	if (urlParams.has("chunked") || urlParams.has("chunk")) {
 		session.chunked = parseInt(urlParams.get("chunked")) || parseInt(urlParams.get("chunk")) || 2500; // sender side; enables to allows.
 		// session.alpha = true;
-		if (Firefox || SafariVersion) {
+		if (Firefox || (SafariVersion && !(iOS || iPad))) {
 			if (!session.cleanOutput) {
 				warnUser("Only Chromium-based browsers support chunked mode.\n\nPlease switch to Chrome or another compatible browser to use &chunked mode.");
 			}
 			session.chunked = false;
 			console.warn("Disabling chunked mode since not using a compatible browser.");
+		} else if (SafariVersion && (iOS || iPad)) {
+			var wantsFullEncodedChunked = !(urlParams.has("nochunkaudio") || urlParams.has("nochunkedaudio") || urlParams.has("pcm"));
+			var hasFullEncodedChunkedSupport = (
+				typeof MediaStreamTrackProcessor === "function" &&
+				typeof MediaStreamTrackGenerator === "function" &&
+				typeof VideoEncoder === "function" &&
+				typeof AudioEncoder === "function" &&
+				typeof VideoDecoder === "function" &&
+				typeof AudioDecoder === "function" &&
+				typeof EncodedVideoChunk === "function" &&
+				typeof EncodedAudioChunk === "function"
+			);
+			var allowMobileSafariChunked = (SafariVersion >= 26) && wantsFullEncodedChunked && hasFullEncodedChunkedSupport;
+			if (!allowMobileSafariChunked) {
+				if (!session.cleanOutput) {
+					warnUser("Chunked mode on iOS/iPadOS is only enabled on version 26+ when full encoded WebCodecs support is present.");
+				}
+				session.chunked = false;
+				console.warn("Disabling chunked mode on iOS/iPadOS Safari/WebKit.");
+			}
 		}
 	}
 	if (urlParams.has("chunkedbuffer") || urlParams.has("sendingbuffer")) {
@@ -5208,9 +5308,13 @@ async function main() {
 
 	parseIntegerParam("chunkfec", "chunkfec", [0, 12]);
 	parseBooleanParam("chunknack", "chunknack");
-	parseIntegerParam("chunkbuffer", "chunkbuffer", [0, 30000]);
-	parseIntegerParam("chunkbufferfloor", "chunkbufferfloor", [0, 30000]);
-	parseIntegerParam("chunkbufferceil", "chunkbufferceil", [0, 60000]);
+	parseIntegerParam("chunkbuffer", "chunkbuffer", [0, 180000]);
+	parseIntegerParam("chunkbufferfloor", "chunkbufferfloor", [0, 180000]);
+	parseIntegerParam("chunkbufferceil", "chunkbufferceil", [0, 180000]);
+	parseBooleanParam("chunkbufferadaptive", "chunkbufferadaptive");
+	if (urlParams.has("fixedchunkbuffer")) {
+		session.chunkbufferadaptive = false;
+	}
 	parseIntegerParam("chunkjitterslack", "chunkjitterslack", [0, 10000]);
 
 	if (urlParams.has("chunkadapt")) {
@@ -5723,6 +5827,7 @@ async function main() {
 	}
 
 	if (urlParams.has("totalroombitrate") || urlParams.has("totalroomvideobitrate") || urlParams.has("trb") || urlParams.has("totalbitrate") || urlParams.has("tb")) {
+		session.totalRoomBitrate_userSet = true;
 		session.totalRoomBitrate = urlParams.get("totalroombitrate") || urlParams.get("totalroomvideobitrate") || urlParams.get("trb") || urlParams.get("totalbitrate") || urlParams.get("tb") || "";
 
 		if (session.totalRoomBitrate.split(",").length > 1) {
@@ -5744,6 +5849,20 @@ async function main() {
 		}
 		log("totalRoomBitrate ENABLED");
 		log(session.totalRoomBitrate);
+	}
+
+	if (urlParams.has("roomtier1bitrate") || urlParams.has("rt1b") || urlParams.has("roomonlylowbitrate") || urlParams.has("rolb")) {
+		var roomTier1Bitrate = parseInt(urlParams.get("roomtier1bitrate") || urlParams.get("rt1b") || urlParams.get("roomonlylowbitrate") || urlParams.get("rolb")) || 0;
+		if (roomTier1Bitrate > 0) {
+			session.roomTier1Bitrate = roomTier1Bitrate;
+		}
+	}
+
+	if (urlParams.has("roomtier2bitrate") || urlParams.has("rt2b") || urlParams.has("roomonlybitrate") || urlParams.has("rob")) {
+		var roomTier2Bitrate = parseInt(urlParams.get("roomtier2bitrate") || urlParams.get("rt2b") || urlParams.get("roomonlybitrate") || urlParams.get("rob")) || 0;
+		if (roomTier2Bitrate > 0) {
+			session.roomTier2Bitrate = roomTier2Bitrate;
+		}
 	}
 
 	if (session.totalRoomBitrate === false) {
@@ -5838,8 +5957,8 @@ async function main() {
 		getById("whipoutaudiobitrate").classList.add("hidden");
 	}
 
-	if (urlParams.has("mcb") || urlParams.has("mcbitrate") || urlParams.has("meshcastbitrate") || urlParams.has("whipoutvideobitrate") || urlParams.has("wovb")) {
-		session.whipOutVideoBitrate = urlParams.get("mcb") || urlParams.get("mcbitrate") || urlParams.get("meshcastbitrate") || urlParams.get("whipoutvideobitrate") || urlParams.get("wovb") || false;
+	if (urlParams.has("mcb") || urlParams.has("mcbitrate") || urlParams.has("meshcastbitrate") || urlParams.has("mediamtxbitrate") || urlParams.has("whipbitrate") || urlParams.has("whipoutvideobitrate") || urlParams.has("wovb")) {
+		session.whipOutVideoBitrate = urlParams.get("mcb") || urlParams.get("mcbitrate") || urlParams.get("meshcastbitrate") || urlParams.get("mediamtxbitrate") || urlParams.get("whipbitrate") || urlParams.get("whipoutvideobitrate") || urlParams.get("wovb") || false;
 		if (session.whipOutVideoBitrate) {
 			session.whipOutVideoBitrate = parseInt(session.whipOutVideoBitrate);
 		}
@@ -6179,6 +6298,15 @@ async function main() {
 		session.claimBypassKey = roomBypassKey || false;
 		if (!session.roomBypassKey) {
 			session.claimBypassKey = false;
+		}
+	}
+
+	if (urlParams.has("noclaim") || urlParams.has("noautoclaim") || urlParams.has("nonclaiming")) {
+		session.noRoomClaim = true;
+	} else if (urlParams.has("claim")) {
+		const claimValue = (urlParams.get("claim") || "").toLowerCase();
+		if (claimValue === "0" || claimValue === "false" || claimValue === "off" || claimValue === "no") {
+			session.noRoomClaim = true;
 		}
 	}
 
@@ -7227,7 +7355,38 @@ async function main() {
 		session.effect = "7";
 		if (urlParams.get("digitalzoom")){
 			session.effectValue_default = parseFloat(urlParams.get("digitalzoom")) || 1;
-		} 
+		}
+	} else if (urlParams.has("backgroundblur") || urlParams.has("bgblur")) {
+		session.effect = "3";
+		if (urlParams.get("backgroundblur") || urlParams.get("bgblur")){
+			session.effectValue_default = parseFloat(urlParams.get("backgroundblur") || urlParams.get("bgblur")) || 2;
+		}
+	} else if (urlParams.has("greenscreen")) {
+		session.effect = "4";
+	} else if (urlParams.has("virtualbackground") || urlParams.has("vbg")) {
+		session.effect = "5";
+	} else if (urlParams.has("transparentbg") || urlParams.has("transparentbackground")) {
+		session.effect = "16";
+	} else if (urlParams.has("facemesh")) {
+		session.effect = "6";
+	} else if (urlParams.has("chromakey")) {
+		session.effect = "14";
+		if (urlParams.get("chromakey")){
+			session.effectValue_default = parseFloat(urlParams.get("chromakey")) || 25;
+		}
+	} else if (urlParams.has("chromakeybg")) {
+		session.effect = "15";
+		if (urlParams.get("chromakeybg")){
+			session.effectValue_default = parseFloat(urlParams.get("chromakeybg")) || 25;
+		}
+	} else if (urlParams.has("facetracker") || urlParams.has("facetracking")) {
+		session.effect = "1";
+	} else if (urlParams.has("overlayfx")) {
+		session.effect = "overlay";
+	} else if (urlParams.has("anonymousmask") || urlParams.has("anonmask")) {
+		session.effect = "anon";
+	} else if (urlParams.has("dogface") || urlParams.has("dogears")) {
+		session.effect = "dog";
 	}
 
 	if (session.effect && !session.cleanOutput) {
@@ -7374,6 +7533,15 @@ async function main() {
 	if (urlParams.has("effectvalue") || urlParams.has("ev")) {
 		session.effectValue = parseFloat(urlParams.get("effectvalue")) || parseFloat(urlParams.get("ev")) || 0;
 		session.effectValue_default = session.effectValue;
+	} else if (session.effect && session.effectValue_default === false) {
+		// No explicit value from URL; check for a saved preference for this session context
+		try {
+			var savedVal = await getSavedEffectValue(session.effect);
+			if (savedVal !== null) {
+				session.effectValue = savedVal;
+				session.effectValue_default = savedVal;
+			}
+		} catch(e){}
 	}
 
 	if (session.webcamonly == true) {
@@ -7612,6 +7780,23 @@ async function main() {
 				} else {
 					warnUser(getTranslationOrFallback("invalid-whep-source-url", "Invalid WHEP source URL. Use https:// (or http://localhost for local testing)."), 7000);
 				}
+			}
+		} catch (e) {
+			errorlog(e);
+		}
+	}
+	if (urlParams.has("autowhep") && session.whipOutput && !session.whipoutSettingsUserSet && !(session.whipoutSettings && session.whipoutSettings.url)) {
+		try {
+			const autoWhepSrc = deriveAutoWhepShareUrl(session.whipOutput);
+			if (autoWhepSrc) {
+				const whepInput = getById("whepURL");
+				if (whepInput) {
+					whepInput.value = autoWhepSrc;
+				}
+				applyWhepShareSettings(autoWhepSrc);
+				log("AUTO WHEP SRC: " + autoWhepSrc);
+			} else {
+				warnlog("Unable to derive WHEP share URL from WHIP output URL.");
 			}
 		} catch (e) {
 			errorlog(e);
@@ -8177,15 +8362,25 @@ async function main() {
 	if (urlParams.has("flagship")) {
 		session.flagship = true;
 	}
+
+	if (urlParams.has("nomobilebitratecap")) {
+		session.noMobileBitrateCap = true;
+	}
 	//if (!session.flagship && session.mobile && (session.limitTotalBitrate===false)){
 	// session.limitTotalBitrate = session.totalRoomBitrate_default; // 500, with the max per guest stream out at maxMobileBitrate (350kbps) or 35-kbps if more than X in the room.
 	//}
 
 	if (urlParams.has("maxmobilebitrate")) {
-		session.maxMobileBitrate = parseInt(urlParams.has("maxmobilebitrate")) || 0;
+		var maxMobileBitrate = parseInt(urlParams.get("maxmobilebitrate")) || 0;
+		if (maxMobileBitrate > 0) {
+			session.maxMobileBitrate = maxMobileBitrate;
+		}
 	}
 	if (urlParams.has("lowmobilebitrate")) {
-		session.lowMobileBitrate = parseInt(urlParams.has("lowmobilebitrate")) || 0;
+		var lowMobileBitrate = parseInt(urlParams.get("lowmobilebitrate")) || 0;
+		if (lowMobileBitrate > 0) {
+			session.lowMobileBitrate = lowMobileBitrate;
+		}
 	}
 
 	//  Please contact steve on discord.vdo.ninja if you'd like this iFRAME tweaked, expanded, etc -- it's updated based on user request
@@ -10128,6 +10323,9 @@ async function main() {
 			} catch (e) {
 				errorlog(e);
 			}
+			try {
+				downloadSessionLog();
+			} catch (e) {}
 		});
 
 		var script = document.createElement("script");

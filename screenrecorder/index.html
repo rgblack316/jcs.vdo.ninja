@@ -85,6 +85,25 @@
         </label>
 
         <label class="row">
+          <span>Webcam Border</span>
+          <select id="webcamBorder">
+            <option value="green" selected>Green (Default)</option>
+            <option value="blue">Blue</option>
+            <option value="white">White</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+
+        <label class="row">
+          <span>Aspect Ratio</span>
+          <select id="aspectRatio">
+            <option value="16:9" selected>16:9 Landscape</option>
+            <option value="9:16">9:16 Portrait</option>
+            <option value="1:1">1:1 Square</option>
+          </select>
+        </label>
+
+        <label class="row">
           <span>Output Resolution</span>
           <select id="outputResolution">
             <option value="1280x720">HD 720p</option>
@@ -93,12 +112,33 @@
             <option value="3840x2160">UHD 4K (Experimental)</option>
           </select>
         </label>
-        <p id="outputQualityHint" class="hint hint-compact">Full HD 1080p at about 14.0 Mbps video target bitrate.</p>
+
+        <label class="row">
+          <span>Recording Quality</span>
+          <select id="recordingQuality">
+            <option value="smaller">Smaller File</option>
+            <option value="balanced" selected>Balanced</option>
+            <option value="high">High Detail</option>
+            <option value="master">Archive / Master</option>
+          </select>
+        </label>
+
+        <label class="row">
+          <span>Video Codec</span>
+          <select id="recordingCodec">
+            <option value="auto" selected>Auto (Stable)</option>
+            <option value="vp8">VP8 WebM</option>
+            <option value="vp9">VP9 WebM</option>
+            <option value="h264">H.264 / MP4</option>
+          </select>
+        </label>
+        <p id="outputQualityHint" class="hint hint-compact">Full HD 1080p at about 18.0 Mbps video target bitrate.</p>
 
         <div class="toggle-grid">
           <label><input id="includeWebcam" type="checkbox" checked> Webcam</label>
           <label><input id="includeMic" type="checkbox" checked> Microphone</label>
           <label><input id="includeSystemAudio" type="checkbox"> System Audio</label>
+          <label><input id="showCropGuides" type="checkbox"> Show Crop Guides</label>
           <div class="toggle-help-row">
             <label><input id="faceCrop" type="checkbox"> Auto Face Crop (Exp)</label>
             <button id="faceCropInfoBtn" class="help-dot" type="button" aria-label="Auto Face Crop help" title="Auto Face Crop help">?</button>
@@ -127,20 +167,44 @@
           </select>
         </label>
 
+        <div id="micLevelRow" class="mic-level-row" style="display:none">
+          <span>Mic Level</span>
+          <div class="mic-level-track">
+            <div id="micLevelBar" class="mic-level-bar"></div>
+          </div>
+        </div>
+
         <p id="deviceHint" class="hint hint-compact">If names are missing, click Refresh and allow access.</p>
 
         <h3>Mic Processing</h3>
         <div class="toggle-grid">
+          <label><input id="voiceIsolation" type="checkbox" checked> Voice Isolation</label>
           <label><input id="autoGainControl" type="checkbox" checked> Auto Gain</label>
-          <label><input id="noiseSuppression" type="checkbox" checked> Noise Suppression</label>
+          <label><input id="noiseSuppression" type="checkbox"> Noise Suppression</label>
           <label><input id="echoCancellation" type="checkbox" checked> Echo Cancellation</label>
+          <label><input id="micCompressor" type="checkbox" checked> Vocal Compressor</label>
+          <label><input id="bassBoost250" type="checkbox"> 250 Hz Warmth Boost (+6 dB)</label>
         </div>
+        <p class="hint hint-compact">Voice Isolation is preferred when supported. Use the 250 Hz boost to add warmth to thinner voices.</p>
 
         <h3>Experimental Editing</h3>
-        <div class="toggle-grid">
-          <label><input id="autoSkipSilence" type="checkbox"> Auto Skip Silence</label>
-          <label><input id="enableTranscription" type="checkbox"> Live Transcription</label>
+        <div class="toggle-grid toggle-grid-emphasis">
+          <label id="autoSkipSilenceLabel" class="toggle-option">
+            <span class="toggle-option-main">
+              <input id="autoSkipSilence" type="checkbox">
+              <span>Auto Skip Silence</span>
+            </span>
+            <span id="autoSkipSilenceState" class="toggle-state toggle-state-off">Off</span>
+          </label>
+          <label id="enableTranscriptionLabel" class="toggle-option">
+            <span class="toggle-option-main">
+              <input id="enableTranscription" type="checkbox">
+              <span>Live Transcription</span>
+            </span>
+            <span id="enableTranscriptionState" class="toggle-state toggle-state-off">Off</span>
+          </label>
         </div>
+        <p id="smartEditStatus" class="hint hint-compact smart-edit-status" aria-live="polite">No smart editing tools armed.</p>
 
         <label class="row">
           <span>Silence Window</span>
@@ -183,18 +247,21 @@
           </div>
           <div class="actions">
             <button id="startBtn" class="btn btn-primary">Start Recording</button>
+            <button id="switchSourceBtn" class="btn btn-muted" disabled>Switch Source</button>
             <button id="pauseBtn" class="btn btn-muted" disabled>Pause</button>
+            <button id="markerBtn" class="btn btn-muted" type="button" disabled title="Add a cut marker (M)">Marker</button>
             <button id="restartBtn" class="btn btn-muted" disabled>Restart Take</button>
             <button id="stopBtn" class="btn btn-danger" disabled>Stop</button>
           </div>
         </div>
         <p class="hint">Tip: capture a single tab for best browser audio reliability. Chromium desktop has the broadest feature support.</p>
-      </section>
-    </section>
+        <p id="mobileWarning" class="hint" style="display:none;color:#f4a623;font-weight:bold;">Note: Screen recording is not supported on mobile browsers (iOS/Android). This is a browser limitation — mobile browsers do not provide the getDisplayMedia API needed for screen capture. Please use a desktop/laptop browser instead.</p>
 
-    <section id="downloadsPanel" class="panel downloads hidden">
-      <h2>Exports</h2>
-      <ul id="downloadList"></ul>
+        <section id="downloadsPanel" class="downloads hidden">
+          <h2>Exports</h2>
+          <ul id="downloadList"></ul>
+        </section>
+      </section>
     </section>
 
     <section id="transcriptPanel" class="panel transcript hidden">
@@ -227,8 +294,6 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
-
-
 
 
 

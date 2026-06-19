@@ -764,6 +764,7 @@ function judgePerformance() {
 		}
 
 		const cores = typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : 0;
+		const memory = typeof navigator.deviceMemory === 'number' ? navigator.deviceMemory : 0;
 
 		if (isIntelMac()) {
 			if (cores < 6) { // yes. they are that bad.
@@ -773,8 +774,14 @@ function judgePerformance() {
 			}
 		}
 
-		if (session.mobile && (cores >= 4)) { // assume hardware encoded acceleration
-			return 0;
+		if (session.mobile) {
+			if ((cores && cores < 4) || (memory && memory <= 2)) {
+				return 2;
+			} else if (cores >= 8 && (!memory || memory >= 6)) {
+				return 0;
+			} else if (cores >= 4) { // assume hardware encoded acceleration
+				return 1;
+			}
 		}
 
 		if (!cores) {
@@ -1133,17 +1140,96 @@ function createSyntheticTestMediaStream(constraints = {}) {
 	var stream = createMediaStream();
 	var cleanupTriggered = false;
 	var trackCount = 0;
+	var drawStopper = null;
 	var drawInterval = null;
 	var videoStream = null;
 	var audioContext = null;
 	var oscillator = null;
 	var gainNode = null;
+	var schedulerOscillator = null;
+	var schedulerGain = null;
+	var schedulerToken = 0;
+
+	var getSyntheticAudioContext = function () {
+		if (audioContext) {
+			return audioContext;
+		}
+		var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+		if (!AudioContextCtor) {
+			return null;
+		}
+		audioContext = new AudioContextCtor({ sampleRate: 48000 });
+		if (audioContext.state === "suspended") {
+			audioContext.resume().catch(function () {});
+		}
+		return audioContext;
+	};
+
+	var stopSyntheticVideoScheduler = function () {
+		schedulerToken += 1;
+		try {
+			if (schedulerOscillator) {
+				schedulerOscillator.onended = null;
+				schedulerOscillator.stop();
+				schedulerOscillator.disconnect();
+				schedulerOscillator = null;
+			}
+		} catch (e) {}
+		try {
+			if (schedulerGain) {
+				schedulerGain.disconnect();
+				schedulerGain = null;
+			}
+		} catch (e) {}
+		drawStopper = null;
+	};
+
+	var startSyntheticVideoScheduler = function (frameRate, drawCallback) {
+		var context = getSyntheticAudioContext();
+		if (!context || context.state !== "running") {
+			return false;
+		}
+		var schedulerId = ++schedulerToken;
+		var scheduleNextFrame = function (nextTime) {
+			if (cleanupTriggered || schedulerToken !== schedulerId) {
+				return;
+			}
+			schedulerOscillator = context.createOscillator();
+			schedulerGain = context.createGain();
+			schedulerGain.gain.value = 0;
+			schedulerOscillator.connect(schedulerGain);
+			schedulerGain.connect(context.destination);
+			schedulerOscillator.onended = function () {
+				try {
+					schedulerOscillator.disconnect();
+				} catch (e) {}
+				try {
+					schedulerGain.disconnect();
+				} catch (e) {}
+				schedulerOscillator = null;
+				schedulerGain = null;
+				if (cleanupTriggered || schedulerToken !== schedulerId) {
+					return;
+				}
+				drawCallback();
+				scheduleNextFrame(context.currentTime);
+			};
+			schedulerOscillator.start(nextTime);
+			schedulerOscillator.stop(nextTime + 1 / frameRate);
+		};
+		scheduleNextFrame(context.currentTime);
+		drawStopper = stopSyntheticVideoScheduler;
+		return true;
+	};
 
 	var cleanupSyntheticStream = function () {
 		if (cleanupTriggered) {
 			return;
 		}
 		cleanupTriggered = true;
+		if (drawStopper) {
+			drawStopper();
+		}
 		if (drawInterval) {
 			clearInterval(drawInterval);
 			drawInterval = null;
@@ -1231,7 +1317,16 @@ function createSyntheticTestMediaStream(constraints = {}) {
 			frameIndex += 1;
 		};
 		drawSyntheticFrame();
-		drawInterval = setInterval(drawSyntheticFrame, Math.max(16, Math.round(1000 / targetFps)));
+		if (!startSyntheticVideoScheduler(targetFps, drawSyntheticFrame)) {
+			drawInterval = setInterval(drawSyntheticFrame, Math.max(16, Math.round(1000 / targetFps)));
+			drawStopper = function () {
+				if (drawInterval) {
+					clearInterval(drawInterval);
+					drawInterval = null;
+				}
+			};
+			warnlog("AudioContext unavailable; synthetic video frame pump may throttle in background tabs.");
+		}
 		if (typeof canvas.captureStream === "function") {
 			videoStream = canvas.captureStream(targetFps);
 			var videoTrack = videoStream.getVideoTracks()[0];
@@ -1255,13 +1350,11 @@ function createSyntheticTestMediaStream(constraints = {}) {
 	}
 
 	if (wantsAudio) {
-		var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-		if (!AudioContextCtor) {
+		if (!getSyntheticAudioContext()) {
 			warnlog("AudioContext unavailable; synthetic audio track disabled.");
 		} else {
 			var requestedTone = parseInt(session.testMediaTone) || 440;
 			requestedTone = clampSyntheticSetting(requestedTone, 50, 2000, 440);
-			audioContext = new AudioContextCtor({ sampleRate: 48000 });
 			var destination = audioContext.createMediaStreamDestination();
 			oscillator = audioContext.createOscillator();
 			gainNode = audioContext.createGain();
@@ -5435,6 +5528,172 @@ function changeSceneLowBandwidth(state) {
 	}
 }
 
+var screenShareResizeStabilizeDelay = 220;
+var screenShareResizeAspectTolerance = 0.003;
+
+function aspectRatiosClose(a, b) {
+	a = parseFloat(a) || 0;
+	b = parseFloat(b) || 0;
+	return Math.abs(a - b) <= screenShareResizeAspectTolerance;
+}
+
+function isScreenShareVideoElement(vid) {
+	try {
+		if (!vid) {
+			return false;
+		}
+		var vidUUID = vid.dataset && vid.dataset.UUID;
+		var vidSid = vid.dataset && vid.dataset.sid;
+		if (vid.id === "screensharesource" || (vidUUID && vidUUID.endsWith("_screen")) || (vidSid && vidSid.endsWith(":s"))) {
+			return true;
+		}
+		if (vid.id === "videosource" && session.screenShareState && !session.screenShareElement) {
+			return true;
+		}
+		if (vidUUID && session.rpcs && session.rpcs[vidUUID] && session.rpcs[vidUUID].screenShareState) {
+			return !session.rpcs[vidUUID + "_screen"];
+		}
+	} catch (e) { }
+	return false;
+}
+
+function setStableScreenShareAspectRatio(vid, aspectRatio) {
+	if (!isScreenShareVideoElement(vid)) {
+		return;
+	}
+	vid.stableScreenShareAspectRatio = parseFloat(aspectRatio) || 0;
+	vid.stableScreenShareWidth = parseInt(vid.videoWidth) || vid.stableScreenShareAspectRatio || 0;
+	vid.stableScreenShareHeight = parseInt(vid.videoHeight) || 1;
+}
+
+function getStableScreenShareVideoDimensions(vid) {
+	if (!isScreenShareVideoElement(vid)) {
+		return null;
+	}
+	var stableAspectRatio = parseFloat(vid.stableScreenShareAspectRatio) || parseFloat(vid.dataset && vid.dataset.aspectRatio) || 0;
+	if (!stableAspectRatio) {
+		return null;
+	}
+	if (vid.screenShareResizePending || !(vid.videoWidth && vid.videoHeight)) {
+		return {
+			width: stableAspectRatio,
+			height: 1
+		};
+	}
+	return null;
+}
+
+function commitVideoAspectRatio(v, aspectRatio, UUID) {
+	var changed = false;
+	if (v.resetAR) {
+		log("ASPECT RATIO UNMUTED");
+		delete v.resetAR;
+		changed = true;
+	} else if (v.dataset.aspectRatio) {
+		if (!aspectRatiosClose(aspectRatio, v.dataset.aspectRatio)) {
+			log("ASPECT RATIO CHANGED");
+			changed = true;
+		}
+	} else {
+		log("NEW VIDEO ? ASPECT RATIO new");
+		changed = true;
+	}
+
+	if (!changed) {
+		return false;
+	}
+	v.dataset.aspectRatio = aspectRatio;
+	pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
+	setTimeout(function () {
+		updateMixer();
+	}, 1);
+	return true;
+}
+
+function finishScreenShareAspectRatioResize(v, aspectRatio, UUID) {
+	v.screenShareResizePending = false;
+	v.pendingScreenShareAspectRatio = false;
+	setStableScreenShareAspectRatio(v, aspectRatio);
+	commitVideoAspectRatio(v, aspectRatio, UUID);
+}
+
+function handleScreenShareAspectRatioResize(v, aspectRatio, UUID) {
+	if (!isScreenShareVideoElement(v)) {
+		return false;
+	}
+
+	var currentAspectRatio = parseFloat(v.dataset.aspectRatio) || 0;
+	var stableAspectRatio = parseFloat(v.stableScreenShareAspectRatio) || currentAspectRatio || 0;
+	if (!stableAspectRatio) {
+		finishScreenShareAspectRatioResize(v, aspectRatio, UUID);
+		return true;
+	}
+
+	if (currentAspectRatio && aspectRatiosClose(aspectRatio, currentAspectRatio)) {
+		clearTimeout(v.screenShareResizeTimer);
+		v.screenShareResizePending = false;
+		v.pendingScreenShareAspectRatio = false;
+		delete v.resetAR;
+		v.dataset.aspectRatio = aspectRatio;
+		setStableScreenShareAspectRatio(v, aspectRatio);
+		return true;
+	}
+
+	clearTimeout(v.screenShareResizeTimer);
+	v.screenShareResizePending = true;
+	v.pendingScreenShareAspectRatio = aspectRatio;
+	v.screenShareResizeTimer = setTimeout(function (video, uuid) {
+		var settledAspectRatio = parseFloat(video.videoWidth / video.videoHeight) || video.pendingScreenShareAspectRatio || aspectRatio;
+		if (!settledAspectRatio) {
+			video.screenShareResizePending = false;
+			video.resetAR = true;
+			return;
+		}
+		finishScreenShareAspectRatioResize(video, settledAspectRatio, uuid);
+		if (session.viewChroma && !session.director) {
+			syncIncomingViewChromaCanvas(uuid);
+		}
+	}, screenShareResizeStabilizeDelay, v, UUID);
+	return true;
+}
+
+function handleVideoAspectRatioResize(v, UUID, applyIncomingRotation = false) {
+	var aspectRatio = parseFloat(v.videoWidth / v.videoHeight) || 0;
+	log("resize event: " + aspectRatio);
+
+	if (!aspectRatio) {
+		v.resetAR = true;
+		return;
+	}
+
+	if (applyIncomingRotation) {
+		if (typeof v.manualRotate == "number") {
+			//v.rotated = v.manualRotate; // ((session.rotate || 0) + 90) % 360;
+		} else if (session.keepIncomingVideosInLandscape) {
+			if (aspectRatio < 1) {
+				// session.keepIncomingVideosInLandscape
+				v.rotated = session.keepIncomingVideosInLandscape;
+			} else {
+				v.rotated = 0;
+			}
+		} else if (session.keepIncomingVideosInPortrait) {
+			if (aspectRatio > 1) {
+				// session.keepIncomingVideosInLandscape
+				v.rotated = session.keepIncomingVideosInPortrait;
+			} else {
+				v.rotated = 0;
+			}
+		}
+	}
+
+	if (!handleScreenShareAspectRatioResize(v, aspectRatio, UUID)) {
+		commitVideoAspectRatio(v, aspectRatio, UUID);
+	}
+	if (session.viewChroma && !session.director) {
+		syncIncomingViewChromaCanvas(UUID);
+	}
+}
+
 function setupIncomingScreenTracking(v, UUID) {
 	// SCREEN  element.
 
@@ -5508,40 +5767,7 @@ function setupIncomingScreenTracking(v, UUID) {
 
 	v.addEventListener("resize", e => {
 		// if the aspect ratio changes, then we might want to update the mixer.  If audio only, then this doesn't matter.
-		var v = e.target;
-		var aspectRatio = parseFloat(v.videoWidth / v.videoHeight) || 0;
-		log("resize event: " + aspectRatio);
-
-		if (!aspectRatio) {
-			v.resetAR = true;
-			return;
-		} // if Audio only, then we don't want to set or update any aspect ratio.
-
-		if (v.resetAR) {
-			log("ASPECT RATIO UNMUTED");
-			delete v.resetAR;
-			v.dataset.aspectRatio = aspectRatio;
-			pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-			setTimeout(function () {
-				updateMixer();
-			}, 1);
-		} else if (v.dataset.aspectRatio) {
-			if (aspectRatio != parseFloat(v.dataset.aspectRatio)) {
-				log("ASPECT RATIO CHANGED");
-				v.dataset.aspectRatio = aspectRatio;
-				pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-				setTimeout(function () {
-					updateMixer();
-				}, 1); // We don't want to run this on the first resize?  just subsequent ones.
-			}
-		} else {
-			log("NEW VIDEO ? ASPECT RATIO new");
-			v.dataset.aspectRatio = aspectRatio;
-			pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-			setTimeout(function () {
-				updateMixer();
-			}, 1);
-		}
+		handleVideoAspectRatioResize(e.target, UUID, false);
 	});
 	if (typeof session.volume == "number") {
 		v.volume = session.volume;
@@ -5921,57 +6147,7 @@ function setupIncomingVideoTracking(v, UUID) {
 	}
 
 	v.addEventListener("resize", e => {
-		var v = e.target;
-		var aspectRatio = parseFloat(v.videoWidth / v.videoHeight) || 0;
-		log("resize event: " + aspectRatio);
-
-		if (!aspectRatio) {
-			v.resetAR = true;
-			return;
-		} // if Audio only, then we don't want to set or update any aspect ratio.
-		if (typeof v.manualRotate == "number") {
-			//v.rotated = v.manualRotate; // ((session.rotate || 0) + 90) % 360;
-		} else if (session.keepIncomingVideosInLandscape) {
-			if (aspectRatio < 1) {
-				// session.keepIncomingVideosInLandscape
-				v.rotated = session.keepIncomingVideosInLandscape;
-			} else {
-				v.rotated = 0;
-			}
-		} else if (session.keepIncomingVideosInPortrait) {
-			if (aspectRatio > 1) {
-				// session.keepIncomingVideosInLandscape
-				v.rotated = session.keepIncomingVideosInPortrait;
-			} else {
-				v.rotated = 0;
-			}
-		}
-
-		if (v.resetAR) {
-			log("ASPECT RATIO UNMUTED");
-			delete v.resetAR;
-			v.dataset.aspectRatio = aspectRatio;
-			pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-			setTimeout(function () {
-				updateMixer();
-			}, 1);
-		} else if (v.dataset.aspectRatio) {
-			if (aspectRatio != parseFloat(v.dataset.aspectRatio)) {
-				log("ASPECT RATIO CHANGED");
-				v.dataset.aspectRatio = aspectRatio;
-				pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-				setTimeout(function () {
-					updateMixer();
-				}, 1); // We don't want to run this on the first resize?  just subsequent ones.
-			}
-		} else {
-			log("NEW VIDEO ? ASPECT RATIO new");
-			v.dataset.aspectRatio = aspectRatio;
-			pokeIframeAPI("aspect-ratio", v.dataset.aspectRatio, v.dataset.UUID, v.dataset.sid);
-			setTimeout(function () {
-				updateMixer();
-			}, 1);
-		}
+		handleVideoAspectRatioResize(e.target, UUID, true);
 	});
 
 	if (typeof session.volume == "number") {
@@ -6560,7 +6736,6 @@ function createRichVideoElement(UUID) {
 				} catch (e) { }
 
 				resetupAudioOut(e.target, true);
-
 				try {
 					if (session.pip) {
 						if (v.readyState >= 3) {
@@ -7239,6 +7414,8 @@ function updateMixerRun(e = false) {
 		} else {
 			var roomQuality = 0;
 			var screenShareTotal = 0;
+			var roomOnlyEligible = 0;
+			var roomOnlyTier = 0;
 
 			for (var i in session.rpcs) {
 				if (session.rpcs[i] === null) {
@@ -7270,6 +7447,11 @@ function updateMixerRun(e = false) {
 								//	mediaPool_invisible.push(session.rpcs[i].videoElement);  // skipped later on
 							} else {
 								roomQuality += 1;
+								var remoteRoomOnlyTier = parseInt(session.rpcs[i].roomOnlyTier) || 0;
+								if (remoteRoomOnlyTier > 0) {
+									roomOnlyEligible += 1;
+									roomOnlyTier = Math.max(roomOnlyTier, remoteRoomOnlyTier);
+								}
 								if (session.rpcs[i].screenShareState) {
 									screenShareTotal += 1;
 								}
@@ -7304,6 +7486,11 @@ function updateMixerRun(e = false) {
 
 			if (session.controlRoomBitrate !== false && session.controlRoomBitrate !== true) {
 				totalRoomBitrate = Math.min(session.controlRoomBitrate, totalRoomBitrate);
+			}
+
+			var roomOnlyBitrateActive = !session.totalRoomBitrate_userSet && !session.bitrate && session.roomid !== false && session.scene === false && !session.director && (session.controlRoomBitrate === false || session.controlRoomBitrate === true) && roomOnlyTier && roomOnlyEligible === roomQuality;
+			if (roomOnlyBitrateActive) {
+				totalRoomBitrate = Math.max(totalRoomBitrate, session.roomTier2Bitrate);
 			}
 
 			var roomBitrate = totalRoomBitrate;
@@ -7689,7 +7876,11 @@ function updateMixerRun(e = false) {
 							if (screenShareBitrate !== false && session.rpcs[i].screenShareState) {
 								delayedRequestRate(screenShareBitrate, i); // well, screw that. Setting it to room quality.
 							} else {
-								delayedRequestRate(roomBitrate, i); // well, screw that. Setting it to room quality.
+								var requestRoomBitrate = roomBitrate;
+								if (roomOnlyBitrateActive && (parseInt(session.rpcs[i].roomOnlyTier) || 0) === 1) {
+									requestRoomBitrate = Math.min(requestRoomBitrate, parseInt(session.roomTier1Bitrate / roomQuality));
+								}
+								delayedRequestRate(requestRoomBitrate, i); // well, screw that. Setting it to room quality.
 							}
 						}
 					} else {
@@ -7850,6 +8041,21 @@ function updateMixerRun(e = false) {
 
 		}
 
+		if (session.viewChroma && mediaPool.length > 1) {
+			const seenMediaPoolItems = {};
+			mediaPool = mediaPool.filter(ele => {
+				const key = (ele && ele.id) || (ele && ele.dataset && (ele.dataset.UUID || ele.dataset.sid)) || false;
+				if (!key) {
+					return true;
+				}
+				if (seenMediaPoolItems[key]) {
+					return false;
+				}
+				seenMediaPoolItems[key] = true;
+				return true;
+			});
+		}
+
 		var mpl = session.slots || mediaPool.length;
 
 		if (!sssid) {
@@ -7883,10 +8089,25 @@ function updateMixerRun(e = false) {
 								const rpc = session.rpcs[mediaPool[NW - 1].dataset.UUID];
 								const currentUUID = mediaPool[NW - 1].dataset.UUID;
 
-								// Skip parent UUID if a _screen counterpart exists (avoid double-counting)
-								if (!currentUUID.endsWith("_screen") && session.rpcs[currentUUID + "_screen"]) {
-									// This is a parent with a _screen entry; let the _screen entry be counted instead
-									continue;
+								// Skip the parent only when the _screen counterpart is actually live and countable.
+								if (!currentUUID.endsWith("_screen")) {
+									const screenRPC = session.rpcs[currentUUID + "_screen"];
+									let hasLiveScreenTwin = false;
+
+									try {
+										if (screenRPC && !screenRPC.smallScreen) {
+											if (screenRPC.streamSrc && screenRPC.streamSrc.getVideoTracks) {
+												hasLiveScreenTwin = screenRPC.streamSrc.getVideoTracks().some(trk => trk.readyState === "live");
+											}
+											if (!hasLiveScreenTwin && screenRPC.videoElement && screenRPC.videoElement.srcObject && screenRPC.videoElement.srcObject.getVideoTracks) {
+												hasLiveScreenTwin = screenRPC.videoElement.srcObject.getVideoTracks().some(trk => trk.readyState === "live");
+											}
+										}
+									} catch (e) { }
+
+									if (hasLiveScreenTwin) {
+										continue;
+									}
 								}
 
 								// Check for screen share indicators: flag, UUID suffix, or stream ID suffix
@@ -7923,6 +8144,18 @@ function updateMixerRun(e = false) {
 						} else if ("id" in mediaPool[NW - 1] && mediaPool[NW - 1].id == "screensharesource" && session.notifyScreenShare) {
 							sscount += 1;
 							sssid = mediaPool[NW - 1].dataset.sid;
+						} else if ("id" in mediaPool[NW - 1] && mediaPool[NW - 1].id == "videosource" && session.notifyScreenShare && session.screenShareState && !session.screenShareElement) {
+							let hasLivePrimaryScreenVideo = false;
+							try {
+								if (mediaPool[NW - 1].srcObject && mediaPool[NW - 1].srcObject.getVideoTracks) {
+									hasLivePrimaryScreenVideo = mediaPool[NW - 1].srcObject.getVideoTracks().some(trk => trk.readyState === "live");
+								}
+							} catch (e) { }
+
+							if (hasLivePrimaryScreenVideo) {
+								sscount += 1;
+								sssid = mediaPool[NW - 1].dataset.sid || session.streamID;
+							}
 						}
 					}
 				}
@@ -8771,19 +9004,11 @@ function updateMixerRun(e = false) {
 			container.classList.add("container_holder_video");
 
 			// Add screen share class to individual containers
-			var isScreenShare = false;
+			var isScreenShare = isScreenShareVideoElement(vid);
 			var vidUUID = vid.dataset.UUID;
 			var vidSid = vid.dataset.sid;
 			if (vidUUID && session.rpcs[vidUUID] && !vidSid && session.rpcs[vidUUID].streamID) {
 				vidSid = session.rpcs[vidUUID].streamID;
-			}
-
-			if (vid.id === "screensharesource" || (vidUUID && vidUUID.endsWith("_screen")) || (vidSid && vidSid.endsWith(":s"))) {
-				isScreenShare = true;
-			} else if (vidUUID && session.rpcs[vidUUID] && session.rpcs[vidUUID].screenShareState) {
-				if (!session.rpcs[vidUUID + "_screen"]) {
-					isScreenShare = true;
-				}
 			}
 
 			if (isScreenShare) {
@@ -8872,8 +9097,9 @@ function updateMixerRun(e = false) {
 				vid.style.maxWidth = maxWidth;
 				vid.style.maxHeight = maxHeight;
 
-				const vw = vid.naturalWidth || vid.videoWidth || 0;
-				const vh = vid.naturalHeight || vid.videoHeight || 0;
+				const stableScreenDimensions = getStableScreenShareVideoDimensions(vid);
+				const vw = stableScreenDimensions ? stableScreenDimensions.width : vid.naturalWidth || vid.videoWidth || 0;
+				const vh = stableScreenDimensions ? stableScreenDimensions.height : vid.naturalHeight || vid.videoHeight || 0;
 
 				if (vw && vh) {
 					// Calculate aspect ratios
@@ -9012,8 +9238,9 @@ function updateMixerRun(e = false) {
 				holder.paused.className = "hidden";
 			}
 
-			var vw = vid.naturalWidth || vid.videoWidth; // naturalWidth is for images I guess
-			var vh = vid.naturalHeight || vid.videoHeight;
+			var stableScreenDimensions = getStableScreenShareVideoDimensions(vid);
+			var vw = stableScreenDimensions ? stableScreenDimensions.width : vid.naturalWidth || vid.videoWidth; // naturalWidth is for images I guess
+			var vh = stableScreenDimensions ? stableScreenDimensions.height : vid.naturalHeight || vid.videoHeight;
 
 			// log(vw + " : "+vh);
 
@@ -9044,7 +9271,7 @@ function updateMixerRun(e = false) {
 				////////// COVER VERSION
 				if (session.sharperScreen && sssid && vid.dataset.sid && vid.dataset.sid === sssid) {
 					// do not dynamically scale the screen share feed.
-				} else if (session.dynamicScale) {
+				} else if (session.dynamicScale && !(isScreenShare && vid.screenShareResizePending)) {
 					if (vid.dataset.UUID) {
 						let targetWidth = wrw;
 						let targetHeight = hrh;
@@ -9211,7 +9438,7 @@ function updateMixerRun(e = false) {
 				////////// NON-COVER VERSION (based on holder)
 				if (session.sharperScreen && sssid && vid.dataset.sid && vid.dataset.sid === sssid) {
 					// do not dynamically scale the screen share feed.
-				} else if (session.dynamicScale) {
+				} else if (session.dynamicScale && !(isScreenShare && vid.screenShareResizePending)) {
 					if (vid.dataset.UUID) {
 						let targetWidth = wrw;
 						let targetHeight = hrh;
@@ -9241,7 +9468,7 @@ function updateMixerRun(e = false) {
 				//////////  UNKNOWN VERSION
 				if (session.sharperScreen && sssid && vid.dataset.sid && vid.dataset.sid === sssid) {
 					// do not dynamically scale the screen share feed.
-				} else if (session.dynamicScale) {
+				} else if (session.dynamicScale && !(isScreenShare && vid.screenShareResizePending)) {
 					if (vid.dataset.UUID) {
 						let targetWidth = wrw;
 						let targetHeight = hrh;
@@ -9771,6 +9998,9 @@ function updateMixerRun(e = false) {
 						}
 					}
 				}
+			}
+			if (session.viewChroma && !session.director && vid.dataset && vid.dataset.UUID && session.rpcs && session.rpcs[vid.dataset.UUID] && session.rpcs[vid.dataset.UUID].videoElement === vid) {
+				configureIncomingViewChroma(vid.dataset.UUID);
 			}
 			i += 1;
 		} catch (err) {
@@ -11038,6 +11268,7 @@ function drawOnScreen() {
 	var canvas = document.getElementById("drawOnScreen");
 	if (!canvas) {
 		canvas = document.createElement("canvas");
+		canvas.id = "drawOnScreen";
 		document.getElementById("gridlayout").appendChild(canvas);
 		document.getElementById("gridlayout").style.position = "relative";
 	} else {
@@ -11045,8 +11276,8 @@ function drawOnScreen() {
 	}
 
 	var ctx = canvas.getContext("2d");
-	canvas.width = parseInt(document.getElementById("gridlayout").clientWidth / 2);
-	canvas.height = parseInt(document.getElementById("gridlayout").clientHeight / 2);
+	canvas.width = parseInt(document.getElementById("gridlayout").clientWidth);
+	canvas.height = parseInt(document.getElementById("gridlayout").clientHeight);
 	canvas.style.width = "100%";
 	canvas.style.height = "100%";
 	canvas.style.display = "block";
@@ -11066,12 +11297,21 @@ function drawOnScreen() {
 
 	var object = {};
 
+	function getCanvasPoint(e) {
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: (e.clientX - rect.left) * (canvas.width / rect.width),
+			y: (e.clientY - rect.top) * (canvas.height / rect.height)
+		};
+	}
+
 	function findxy(res, e) {
+		const point = getCanvasPoint(e);
 		if (res == "down") {
 			prevX = currX;
 			prevY = currY;
-			currX = e.clientX - canvas.offsetLeft;
-			currY = e.clientY - canvas.offsetTop;
+			currX = point.x;
+			currY = point.y;
 
 			flag = true;
 			dot_flag = true;
@@ -11090,8 +11330,8 @@ function drawOnScreen() {
 			if (flag) {
 				prevX = currX;
 				prevY = currY;
-				currX = e.clientX - canvas.offsetLeft;
-				currY = e.clientY - canvas.offsetTop;
+				currX = point.x;
+				currY = point.y;
 				draw();
 			}
 		}
@@ -11099,13 +11339,8 @@ function drawOnScreen() {
 
 	function draw() {
 		ctx.beginPath();
-
-		var mx = canvas.width / parseInt(document.getElementById("gridlayout").clientWidth);
-		var my = canvas.height / parseInt(document.getElementById("gridlayout").clientHeight);
-		var mo = parseInt(document.getElementById("header").clientHeight);
-
-		ctx.moveTo(prevX * mx, prevY * my - mo * my);
-		ctx.lineTo(currX * mx, currY * my - mo * my);
+		ctx.moveTo(prevX, prevY);
+		ctx.lineTo(currX, currY);
 		ctx.strokeStyle = x;
 		ctx.lineWidth = y;
 		ctx.stroke();
@@ -11117,6 +11352,9 @@ function drawOnScreen() {
 	}
 
 	function onMouseDown(e) {
+		if (canvas.setPointerCapture && e.pointerId !== undefined) {
+			canvas.setPointerCapture(e.pointerId);
+		}
 		findxy("down", e);
 	}
 
@@ -11129,10 +11367,11 @@ function drawOnScreen() {
 	}
 
 	object.stop = function stop() {
-		canvas.removeEventListener("mousemove", onMouseMove, false);
-		canvas.removeEventListener("mousedown", onMouseDown, false);
-		canvas.removeEventListener("mouseup", onMouseUp, false);
-		canvas.removeEventListener("mouseout", onMouseOut, false);
+		canvas.removeEventListener("pointermove", onMouseMove, false);
+		canvas.removeEventListener("pointerdown", onMouseDown, false);
+		canvas.removeEventListener("pointerup", onMouseUp, false);
+		canvas.removeEventListener("pointercancel", onMouseOut, false);
+		canvas.removeEventListener("pointerleave", onMouseOut, false);
 		canvas.remove();
 
 		document.getElementById("startDrawScreen").classList.remove("hidden");
@@ -11145,10 +11384,11 @@ function drawOnScreen() {
 	};
 
 	object.init = function init() {
-		canvas.addEventListener("mousemove", onMouseMove, false);
-		canvas.addEventListener("mousedown", onMouseDown, false);
-		canvas.addEventListener("mouseup", onMouseUp, false);
-		canvas.addEventListener("mouseout", onMouseOut, false);
+		canvas.addEventListener("pointermove", onMouseMove, false);
+		canvas.addEventListener("pointerdown", onMouseDown, false);
+		canvas.addEventListener("pointerup", onMouseUp, false);
+		canvas.addEventListener("pointercancel", onMouseOut, false);
+		canvas.addEventListener("pointerleave", onMouseOut, false);
 
 		document.getElementById("startDrawScreen").classList.add("hidden");
 
@@ -11228,10 +11468,112 @@ function isSharpTurn(points) {
 	return angleDiff > Math.PI / 4;
 }
 
-function drawOnThis(video) {
+function getDrawingTargetUUID(video) {
+	if (!video || !video.dataset || !video.dataset.UUID) {
+		return false;
+	}
+	return video.dataset.UUID;
+}
+
+function getDrawingTargetInfo(video) {
+	const UUID = getDrawingTargetUUID(video);
+	if (!UUID || !session.rpcs || !session.rpcs[UUID]) {
+		return false;
+	}
+	var target = session.rpcs[UUID];
+	var sendUUID = UUID;
+	var isScreen = !!target.realUUID;
+	if (isScreen) {
+		sendUUID = target.realUUID;
+	}
+	return {
+		UUID: UUID,
+		sendUUID: sendUUID,
+		isScreen: isScreen
+	};
+}
+
+function canDrawOnVideo(video) {
+	if (!video) {
+		return false;
+	}
+	if (video.id === "videosource" || video.id === "screensharesource" || video.id === "previewWebcam") {
+		return true;
+	}
+	const UUID = getDrawingTargetUUID(video);
+	return !!(UUID && session.rpcs && session.rpcs[UUID] && session.rpcs[UUID].allowDrawing);
+}
+
+function addLocalDrawingStatusMessage(message) {
+	try {
+		if (typeof messageList === "undefined" || session.chatbutton === false) {
+			return;
+		}
+		messageList.push({
+			time: Date.now(),
+			msg: sanitizeChat(message),
+			label: false,
+			type: "alert"
+		});
+		messageList = messageList.slice(-100);
+		updateMessages();
+	} catch (e) {
+		errorlog(e);
+	}
+}
+
+function requestDrawingAccess(video) {
+	const target = getDrawingTargetInfo(video);
+	if (!target) {
+		return false;
+	}
+	if (!session.pendingDrawingVideos) {
+		session.pendingDrawingVideos = {};
+	}
+	session.pendingDrawingVideos[target.UUID] = video;
+	if (!session.pendingDrawingAccessRequests) {
+		session.pendingDrawingAccessRequests = {};
+	}
+	if (!session.pendingDrawingAccessRequests[target.UUID] || Date.now() - session.pendingDrawingAccessRequests[target.UUID] > 30000) {
+		session.pendingDrawingAccessRequests[target.UUID] = Date.now();
+		session.sendRequest({
+			drawingRequest: true,
+			drawingTargetUUID: target.UUID,
+			drawingTargetIsScreen: target.isScreen
+		}, target.sendUUID);
+		addLocalDrawingStatusMessage("Drawing access requested. Waiting for the host to approve.");
+	}
+	return true;
+}
+
+function resumePendingDrawOnVideo(UUID) {
+	try {
+		if (!session.pendingDrawingVideos || !session.pendingDrawingVideos[UUID]) {
+			return false;
+		}
+		const video = session.pendingDrawingVideos[UUID];
+		delete session.pendingDrawingVideos[UUID];
+		if (session.pendingDrawingAccessRequests) {
+			delete session.pendingDrawingAccessRequests[UUID];
+		}
+		if (video && !video.clearDrawOnVideo) {
+			video.clearDrawOnVideo = drawOnThis(video, true);
+		}
+		return !!(video && video.clearDrawOnVideo);
+	} catch (e) {
+		errorlog(e);
+	}
+	return false;
+}
+
+function drawOnThis(video, force = false) {
 	try {
 		if (!video || !video.container) {
 			warnlog("no video holder; not compatible");
+			return;
+		}
+		if (!force && !canDrawOnVideo(video)) {
+			requestDrawingAccess(video);
 			return;
 		}
 		var container = video.container || video.parentNode;
@@ -11276,29 +11618,59 @@ function drawOnThis(video) {
 
 		const buttonContainer = document.createElement('div');
 		const enableDrawingBtn = document.createElement('button');
+		const pingDrawingBtn = document.createElement('button');
 		const clearDrawingBtn = document.createElement('button');
 		const undoDrawingBtn = document.createElement('button'); // Undo button
 
 		enableDrawingBtn.textContent = "Enable Drawing";
+		pingDrawingBtn.textContent = "Ping";
 		clearDrawingBtn.textContent = "Clear";
 		undoDrawingBtn.textContent = "Undo"; // Undo button text
 		buttonContainer.className = "buttonContainer";
 
 		buttonContainer.appendChild(enableDrawingBtn);
+		buttonContainer.appendChild(pingDrawingBtn);
 		buttonContainer.appendChild(clearDrawingBtn);
 		buttonContainer.appendChild(undoDrawingBtn); // Add undo button to container
 		holder.appendChild(buttonContainer);
 
 		let isDrawing = false;
 		let drawingEnabled = false;
+		let pingMode = false;
 		let drawingData = [];
 		let lastPoint = null;
 		let lastSentTime = 0;
 		const sendInterval = 1000; // 1 second
 		let lastPoints = [];
 
+		function getNormalizedPoint(e) {
+			const rect = canvas.getBoundingClientRect();
+			return {
+				x: (e.clientX - rect.left) / rect.width,
+				y: (e.clientY - rect.top) / rect.height
+			};
+		}
+
 		function startDrawing(e) {
-			if (!drawingEnabled) return;
+			if (!drawingEnabled && !pingMode) return;
+			if (canvas.setPointerCapture && e.pointerId !== undefined) {
+				canvas.setPointerCapture(e.pointerId);
+			}
+			if (pingMode) {
+				const point = getNormalizedPoint(e);
+				if (point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) {
+					return;
+				}
+				point.x = Math.round(point.x * 4000) / 4000;
+				point.y = Math.round(point.y * 4000) / 4000;
+				drawPing(point, "red");
+				sendDrawingData("ping", point);
+				pingMode = false;
+				pingDrawingBtn.classList.remove("pressed");
+				pingDrawingBtn.textContent = "Ping";
+				canvas.style.pointerEvents = drawingEnabled ? "auto" : "none";
+				return;
+			}
 			isDrawing = true;
 			draw(e);
 		}
@@ -11306,9 +11678,9 @@ function drawOnThis(video) {
 		function draw(e) {
 			if (!isDrawing || !drawingEnabled) return;
 
-			const rect = canvas.getBoundingClientRect();
-			let x = (e.clientX - rect.left) / rect.width;
-			let y = (e.clientY - rect.top) / rect.height;
+			const point = getNormalizedPoint(e);
+			let x = point.x;
+			let y = point.y;
 
 			// Check if the mouse is within bounds
 			if (x < 0 || x > 1 || y < 0 || y > 1) {
@@ -11339,6 +11711,29 @@ function drawOnThis(video) {
 			if (lastPoints.length >= 5 || Date.now() - lastSentTime >= 50) {
 				sendDrawingData();
 			}
+		}
+
+		function drawPing(point, color = "red") {
+			const canvasX = point.x * canvas.width;
+			const canvasY = point.y * canvas.height;
+			const radius = Math.max(16, Math.min(canvas.width, canvas.height) * 0.035);
+
+			redrawCanvas();
+			ctx.save();
+			ctx.strokeStyle = color;
+			ctx.fillStyle = color;
+			ctx.lineWidth = 4;
+			ctx.globalAlpha = 0.9;
+			ctx.beginPath();
+			ctx.arc(canvasX, canvasY, radius, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.globalAlpha = 0.25;
+			ctx.beginPath();
+			ctx.arc(canvasX, canvasY, radius * 0.45, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
+
+			setTimeout(redrawCanvas, 1800);
 		}
 
 		function redrawCanvas() {
@@ -11481,6 +11876,19 @@ function drawOnThis(video) {
 			);
 		}
 
+		function sendRemoteDrawingPayload(drawPayload) {
+			const target = getDrawingTargetInfo(video);
+			if (!target || !session.rpcs[target.UUID].allowDrawing) {
+				return false;
+			}
+			const msg = {
+				draw: drawPayload,
+				drawingTargetUUID: target.UUID,
+				drawingTargetIsScreen: target.isScreen
+			};
+			return session.sendRequest(msg, target.sendUUID);
+		}
+
 		function sendDrawingData(alt = false) {
 			if (alt === "clear") {
 				drawingData = [];
@@ -11497,7 +11905,7 @@ function drawOnThis(video) {
 						}
 					}
 				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
-					session.sendRequest({ draw: "clear" }, video.dataset.UUID);
+					sendRemoteDrawingPayload("clear");
 				}
 				return;
 			}
@@ -11516,7 +11924,7 @@ function drawOnThis(video) {
 						}
 					}
 				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
-					session.sendRequest({ draw: "cleanup" }, video.dataset.UUID);
+					sendRemoteDrawingPayload("cleanup");
 				}
 				return;
 			}
@@ -11550,14 +11958,14 @@ function drawOnThis(video) {
 					} else if (video.id === "screensharesource") {
 						for (var UUID in session.pcs) {
 							if (session.pcs[UUID].allowDrawing && !session.pcs[UUID].realUUID) {
-								session.sendMessage({ draw: "undo", altUUID: true }, UUID);
-							}
+							session.sendMessage({ draw: "undo", altUUID: true }, UUID);
 						}
-					} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
-						session.sendRequest({ draw: "undo" }, video.dataset.UUID);
 					}
-
+				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
+					sendRemoteDrawingPayload("undo");
 				}
+
+			}
 				return;
 			}
 			if (alt === "sync") {
@@ -11584,21 +11992,52 @@ function drawOnThis(video) {
 				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
 					if (!session.rpcs[video.dataset.UUID].initialDrawing) {
 						session.rpcs[video.dataset.UUID].initialDrawing = true;
-						session.sendRequest({ draw: { p: drawingData } }, video.dataset.UUID);
+						sendRemoteDrawingPayload({ p: drawingData });
 					}
+				}
+				return;
+			}
+			if (alt === "ping") {
+				const point = arguments[1];
+				if (!point) { return; }
+				const dataToSend = {
+					ping: point,
+					c: "red"
+				};
+				if (video.id === "videosource") {
+					for (var UUID in session.pcs) {
+						if (session.pcs[UUID].allowDrawing) {
+							session.sendMessage({ draw: dataToSend }, UUID);
+						}
+					}
+				} else if (video.id === "screensharesource") {
+					for (var UUID in session.pcs) {
+						if (session.pcs[UUID].allowDrawing && !session.pcs[UUID].realUUID) {
+							session.sendMessage({ draw: dataToSend, altUUID: true }, UUID);
+						}
+					}
+				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
+					sendRemoteDrawingPayload(dataToSend);
 				}
 				return;
 			}
 			if (lastPoints.length > 0) {
 				var processedPoints = processPoints(lastPoints);
+				var styledPoints = processedPoints.map(segment => {
+					if (segment && typeof segment === "object") {
+						return Object.assign({}, segment, { c: "red" });
+					}
+					return segment;
+				});
 				lastPoints = [];
 				lastSentTime = Date.now();
 
 				var dataToSend = {
-					p: processedPoints
+					p: styledPoints,
+					c: "red"
 				};
 
-				drawingData.push(...processedPoints); // Store only points in drawingData
+				drawingData.push(...styledPoints); // Store only points in drawingData
 
 				// Send the processed points with timestamp
 				if (video.id === "videosource") {
@@ -11625,10 +12064,10 @@ function drawOnThis(video) {
 					}
 				} else if (session.rpcs[video.dataset.UUID] && session.rpcs[video.dataset.UUID].allowDrawing) {
 					if (session.rpcs[video.dataset.UUID].initialDrawing) {
-						session.sendRequest({ draw: dataToSend }, video.dataset.UUID);
+						sendRemoteDrawingPayload(dataToSend);
 					} else {
 						session.rpcs[video.dataset.UUID].initialDrawing = true;
-						session.sendRequest({ draw: { p: drawingData } }, video.dataset.UUID);
+						sendRemoteDrawingPayload({ p: drawingData });
 					}
 				}
 			}
@@ -11647,7 +12086,26 @@ function drawOnThis(video) {
 		enableDrawingBtn.addEventListener('click', () => {
 			drawingEnabled = !drawingEnabled;
 			enableDrawingBtn.textContent = drawingEnabled ? 'Disable Drawing' : 'Enable Drawing';
-			canvas.style.pointerEvents = drawingEnabled ? "auto" : "none";
+			if (drawingEnabled) {
+				pingMode = false;
+				pingDrawingBtn.classList.remove("pressed");
+				pingDrawingBtn.textContent = "Ping";
+			}
+			canvas.style.pointerEvents = (drawingEnabled || pingMode) ? "auto" : "none";
+		});
+
+		pingDrawingBtn.addEventListener('click', () => {
+			pingMode = !pingMode;
+			if (pingMode) {
+				drawingEnabled = false;
+				enableDrawingBtn.textContent = "Enable Drawing";
+				pingDrawingBtn.classList.add("pressed");
+				pingDrawingBtn.textContent = "Click target";
+			} else {
+				pingDrawingBtn.classList.remove("pressed");
+				pingDrawingBtn.textContent = "Ping";
+			}
+			canvas.style.pointerEvents = (drawingEnabled || pingMode) ? "auto" : "none";
 		});
 
 		clearDrawingBtn.addEventListener('click', () => {
@@ -11672,16 +12130,18 @@ function drawOnThis(video) {
 			}
 		}
 
-		canvas.addEventListener('mousedown', startDrawing);
-		canvas.addEventListener('mousemove', draw);
-		canvas.addEventListener('mouseup', stopDrawing);
-		canvas.addEventListener('mouseout', stopDrawing);
-		canvas.addEventListener('mouseleave', stopDrawing);
-		canvas.addEventListener('mouseenter', (e) => {
+		function onPointerEnter(e) {
 			if (e.buttons !== 1) { // If left mouse button is not pressed
 				stopDrawing();
 			}
-		});
+		}
+
+		canvas.addEventListener('pointerdown', startDrawing);
+		canvas.addEventListener('pointermove', draw);
+		canvas.addEventListener('pointerup', stopDrawing);
+		canvas.addEventListener('pointercancel', stopDrawing);
+		canvas.addEventListener('pointerleave', stopDrawing);
+		canvas.addEventListener('pointerenter', onPointerEnter);
 
 		function createCleanupFunction() {
 			return function cleanup() {
@@ -11691,12 +12151,12 @@ function drawOnThis(video) {
 				video.removeEventListener('resize', resizeCanvas);
 
 				if (canvas) {
-					canvas.removeEventListener('mousedown', startDrawing);
-					canvas.removeEventListener('mousemove', draw);
-					canvas.removeEventListener('mouseup', stopDrawing);
-					canvas.removeEventListener('mouseout', stopDrawing);
-					canvas.removeEventListener('mouseleave', stopDrawing);
-					canvas.removeEventListener('mouseenter', stopDrawing);
+					canvas.removeEventListener('pointerdown', startDrawing);
+					canvas.removeEventListener('pointermove', draw);
+					canvas.removeEventListener('pointerup', stopDrawing);
+					canvas.removeEventListener('pointercancel', stopDrawing);
+					canvas.removeEventListener('pointerleave', stopDrawing);
+					canvas.removeEventListener('pointerenter', onPointerEnter);
 
 					if (canvas.parentNode) {
 						canvas.parentNode.removeChild(canvas);
@@ -11741,6 +12201,7 @@ function receiveDrawingOnVideo(video, UUID = false) {
 		canvas.className = "drawingCanvas";
 		canvas.style.pointerEvents = "none";
 		var receivedDrawingData = [];
+		var receivedPings = [];
 
 		var container = video.parentNode;
 		if (!container) {
@@ -11812,10 +12273,12 @@ function receiveDrawingOnVideo(video, UUID = false) {
 		function redrawCanvas() {
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 			ctx.beginPath();
-			ctx.lineWidth = 2;
+			let activeWidth = 2;
+			let activeColor = color;
+			ctx.lineWidth = activeWidth;
 			ctx.lineCap = 'round';
 			ctx.lineJoin = 'round';
-			ctx.strokeStyle = color;
+			ctx.strokeStyle = activeColor;
 
 			let isNewPath = true;
 
@@ -11828,6 +12291,18 @@ function receiveDrawingOnVideo(video, UUID = false) {
 					ctx.beginPath();
 					isNewPath = true;
 					continue;
+				}
+
+				const nextColor = segment.c || color;
+				const nextWidth = segment.w || 2;
+				if (nextColor !== activeColor || nextWidth !== activeWidth) {
+					ctx.stroke();
+					ctx.beginPath();
+					activeColor = nextColor;
+					activeWidth = nextWidth;
+					ctx.strokeStyle = activeColor;
+					ctx.lineWidth = activeWidth;
+					isNewPath = true;
 				}
 
 				switch (segment.t) {
@@ -11874,11 +12349,37 @@ function receiveDrawingOnVideo(video, UUID = false) {
 			}
 
 			ctx.stroke();
+
+			const now = Date.now();
+			receivedPings = receivedPings.filter(ping => ping.expires > now);
+			for (let i = 0; i < receivedPings.length; i++) {
+				drawReceivedPing(receivedPings[i]);
+			}
+		}
+
+		function drawReceivedPing(ping) {
+			const canvasX = ping.x * canvas.width;
+			const canvasY = ping.y * canvas.height;
+			const radius = Math.max(16, Math.min(canvas.width, canvas.height) * 0.035);
+			ctx.save();
+			ctx.strokeStyle = ping.c || color;
+			ctx.fillStyle = ping.c || color;
+			ctx.lineWidth = 4;
+			ctx.globalAlpha = Math.max(0.2, Math.min(1, (ping.expires - Date.now()) / 1800));
+			ctx.beginPath();
+			ctx.arc(canvasX, canvasY, radius, 0, Math.PI * 2);
+			ctx.stroke();
+			ctx.globalAlpha = 0.25;
+			ctx.beginPath();
+			ctx.arc(canvasX, canvasY, radius * 0.45, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
 		}
 
 		function updateDrawing(newData) {
 			if (newData === "clear") {
 				receivedDrawingData = [];
+				receivedPings = [];
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
 			} else if (newData === "undo") {
 				if (receivedDrawingData.length > 0) {
@@ -11902,15 +12403,37 @@ function receiveDrawingOnVideo(video, UUID = false) {
 				}
 			} else {
 				// Handle both new and old data formats
-				if (newData.p) {
+				if (newData.ping) {
+					receivedPings.push({
+						x: newData.ping.x,
+						y: newData.ping.y,
+						c: newData.c || color,
+						expires: Date.now() + 1800
+					});
+					redrawCanvas();
+					setTimeout(redrawCanvas, 1850);
+					return;
+				} else if (newData.p) {
 					// New format
-					receivedDrawingData.push(...newData.p);
+					const style = {};
+					if (newData.c) {
+						style.c = newData.c;
+					}
+					if (newData.w) {
+						style.w = newData.w;
+					}
+					receivedDrawingData.push(...newData.p.map(segment => {
+						if (segment && typeof segment === "object") {
+							return Object.assign({}, style, segment);
+						}
+						return segment;
+					}));
 				} else if (Array.isArray(newData)) {
 					// Old format or array of points
 					receivedDrawingData.push(...newData);
 				} else if (typeof newData === 'object' && newData.x !== undefined && newData.y !== undefined) {
 					// Single point
-					receivedDrawingData.push(newData);
+					receivedDrawingData.push(Object.assign({ c: newData.c || color }, newData));
 				} else {
 					console.error("Unexpected data format:", newData);
 					return;
@@ -11922,6 +12445,7 @@ function receiveDrawingOnVideo(video, UUID = false) {
 
 		function clearDrawing() {
 			receivedDrawingData = [];
+			receivedPings = [];
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 		}
 
@@ -12628,10 +13152,17 @@ function updateUserList() {
 			getById("userList").innerHTML = "";
 
 			for (var UUID in session.rpcs) {
-				if ((session.rpcs[UUID].videoElement && session.rpcs[UUID].streamSrc && session.rpcs[UUID].streamSrc.getTracks().length) || session.rpcs[UUID].canvas || session.rpcs[UUID].imageElement) {
+				if (
+					(session.rpcs[UUID].videoElement && session.rpcs[UUID].streamSrc && session.rpcs[UUID].streamSrc.getTracks().length) ||
+					session.rpcs[UUID].canvas ||
+					session.rpcs[UUID].viewChromaCanvas ||
+					session.rpcs[UUID].imageElement
+				) {
 					if (session.rpcs[UUID].videoElement && document.body.contains(session.rpcs[UUID].videoElement)) {
 						continue;
 					} else if (session.rpcs[UUID].canvas && document.body.contains(session.rpcs[UUID].canvas)) {
+						continue;
+					} else if (session.rpcs[UUID].viewChromaCanvas && document.body.contains(session.rpcs[UUID].viewChromaCanvas)) {
 						continue;
 					} else if (session.rpcs[UUID].imageElement && document.body.contains(session.rpcs[UUID].imageElement)) {
 						continue;
@@ -12641,7 +13172,12 @@ function updateUserList() {
 					// end of screen share / director ?
 					continue;
 				}
-				if (session.rpcs[UUID].videoMuted || (!session.rpcs[UUID].imageElement && !session.rpcs[UUID].canvas) || (session.infocus && session.infocus !== UUID) || (!session.rpcs[UUID].defaultSpeaker && session.activeSpeaker)) {
+				if (
+					session.rpcs[UUID].videoMuted ||
+					(!session.rpcs[UUID].imageElement && !session.rpcs[UUID].canvas && !session.rpcs[UUID].viewChromaCanvas) ||
+					(session.infocus && session.infocus !== UUID) ||
+					(!session.rpcs[UUID].defaultSpeaker && session.activeSpeaker)
+				) {
 					if (session.directorList.indexOf(UUID) >= 0) {
 						if (!session.rpcs[UUID].streamSrc) {
 							// director not active yet, so we won't bother showing it.
@@ -14221,6 +14757,98 @@ function rgbToHsv(r, g, b) {
 	return [h, s, v];
 }
 
+function normalizeHexColor(colorValue, fallback = "#00ff00") {
+	colorValue = (colorValue || fallback || "").toString().trim();
+	if (!colorValue) {
+		colorValue = fallback || "#00ff00";
+	}
+	if (!colorValue.startsWith("#")) {
+		colorValue = "#" + colorValue;
+	}
+	if (/^#[0-9a-fA-F]{3}$/.test(colorValue)) {
+		return (
+			"#" +
+			colorValue[1] + colorValue[1] +
+			colorValue[2] + colorValue[2] +
+			colorValue[3] + colorValue[3]
+		).toLowerCase();
+	}
+	if (/^#[0-9a-fA-F]{6}$/.test(colorValue)) {
+		return colorValue.toLowerCase();
+	}
+	return normalizeHexColor(fallback || "#00ff00", "#00ff00");
+}
+
+function hexToRgb(colorValue, fallback = "#00ff00") {
+	var normalized = normalizeHexColor(colorValue, fallback);
+	return {
+		hex: normalized,
+		r: parseInt(normalized.slice(1, 3), 16),
+		g: parseInt(normalized.slice(3, 5), 16),
+		b: parseInt(normalized.slice(5, 7), 16)
+	};
+}
+
+function clampChromaSetting(value, min, max, fallback) {
+	value = parseInt(value);
+	if (!Number.isFinite(value)) {
+		return fallback;
+	}
+	if (value < min) {
+		return min;
+	}
+	if (value > max) {
+		return max;
+	}
+	return value;
+}
+
+function getIncomingViewChromaConfig() {
+	if (!session || !session.viewChroma) {
+		return false;
+	}
+	var color = normalizeHexColor(session.viewChromaColor || "#00ff00", "#00ff00");
+	var threshold = clampChromaSetting(session.viewChromaThreshold, 0, 255, 40);
+	var smoothing = clampChromaSetting(session.viewChromaSmoothing, 1, 255, 30);
+	var cacheKey = color + ":" + threshold + ":" + smoothing;
+	if (!session.viewChromaResolved || session.viewChromaResolved.cacheKey !== cacheKey) {
+		session.viewChromaResolved = {
+			cacheKey: cacheKey,
+			color: hexToRgb(color, "#00ff00"),
+			threshold: threshold,
+			smoothing: smoothing
+		};
+	}
+	return session.viewChromaResolved;
+}
+
+function applyColorKeyToImageData(imageData, config) {
+	if (!imageData || !config || !config.color) {
+		return imageData;
+	}
+	var data = imageData.data;
+	var target = config.color;
+	var threshold = config.threshold || 0;
+	var smoothing = Math.max(1, config.smoothing || 1);
+	var thresholdPlus = threshold + smoothing;
+	for (var i = 0; i < data.length; i += 4) {
+		var dr = data[i] - target.r;
+		var dg = data[i + 1] - target.g;
+		var db = data[i + 2] - target.b;
+		var distance = Math.sqrt(dr * dr + dg * dg + db * db);
+		var alpha = 255;
+		if (distance <= threshold) {
+			alpha = 0;
+		} else if (distance < thresholdPlus) {
+			alpha = ((distance - threshold) / smoothing) * 255;
+		}
+		if (alpha < data[i + 3]) {
+			data[i + 3] = alpha;
+		}
+	}
+	return imageData;
+}
+
 // real green scree filter
 var chromaKeyMain = false;
 function chromaKey(reinit = false) {
@@ -15731,7 +16359,11 @@ function printViewStats(menu, UUID) {
 
 	if (statsObj.chunked_mode_video && typeof statsObj.chunked_mode_video.buffer_buffer !== "undefined") {
 		var chunkVideo = statsObj.chunked_mode_video;
+		var videoTarget = parseInt(chunkVideo.buffer_buffer || 0);
+		var videoCurrent = typeof chunkVideo.buffer_level !== "undefined" ? parseInt(chunkVideo.buffer_level || 0) : "n/a";
+		var chunkSummaryOverride = "Video Buffer: Target <b>" + videoTarget + " ms</b> / Current <b>" + videoCurrent + " ms</b>";
 		var chunkSummary = "Video Buffer: <b>" + parseInt(chunkVideo.buffer_buffer || 0) + " ms</b> / Δ " + parseInt(chunkVideo.buffer_delta || 0) + " ms";
+		chunkSummary = chunkSummaryOverride;
 		if (chunkVideo.rebuffering) {
 			chunkSummary += " <span style=\"color:#f33\">(rebuffering)</span>";
 		}
@@ -15751,7 +16383,11 @@ function printViewStats(menu, UUID) {
 	}
 	if (statsObj.chunked_mode_audio && typeof statsObj.chunked_mode_audio.buffer_buffer !== "undefined") {
 		var chunkAudio = statsObj.chunked_mode_audio;
+		var audioTarget = parseInt(chunkAudio.buffer_buffer || 0);
+		var audioCurrent = typeof chunkAudio.buffer_level !== "undefined" ? parseInt(chunkAudio.buffer_level || 0) : "n/a";
+		var audioSummaryOverride = "Audio Buffer: Target <b>" + audioTarget + " ms</b> / Current <b>" + audioCurrent + " ms</b>";
 		var audioSummary = "Audio Buffer: <b>" + parseInt(chunkAudio.buffer_buffer || 0) + " ms</b> / Δ " + parseInt(chunkAudio.buffer_delta || 0) + " ms";
+		audioSummary = audioSummaryOverride;
 		if (chunkAudio.rebuffering) {
 			audioSummary += " <span style=\"color:#f33\">(rebuffering)</span>";
 		}
@@ -17402,6 +18038,15 @@ function updateLocalStats() {
 		changed = true;
 	}
 
+	if (session.getRoomOnlyTier) {
+		var roomOnlyTier = session.getRoomOnlyTier();
+		if (session.roomOnlyTier !== roomOnlyTier) {
+			session.roomOnlyTier = roomOnlyTier;
+			miniInfo.rot = roomOnlyTier;
+			changed = true;
+		}
+	}
+
 	if (changed) {
 		for (var uuid in session.pcs) {
 			session.sendMessage({ miniInfo: miniInfo }, uuid); // lets send it to everyone.
@@ -18414,7 +19059,8 @@ function toggleChat(event = null) {
 let chatLiteOverlayFrame = null;
 let chatLiteSessionStorageListenerBound = false;
 const chatLiteLegacySessionStorageKey = "chatLiteSessionId";
-const chatLiteSessionStorageKey = "ssn-lite::session.currentId";
+const chatLiteSessionStorageKeyBase = "ssn-lite::session.currentId";
+let chatLiteSessionSyncScope = "";
 
 function normalizeChatLiteBoolean(value, fallback = true) {
 	if (value === undefined || value === null || value === "") {
@@ -18435,11 +19081,24 @@ function normalizeChatLiteBoolean(value, fallback = true) {
 	return true;
 }
 
+function getChatLiteSyncScope() {
+	if (chatLiteSessionSyncScope) {
+		return chatLiteSessionSyncScope;
+	}
+	chatLiteSessionSyncScope = `vdo-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`;
+	return chatLiteSessionSyncScope;
+}
+
+function getChatLiteSessionStorageKey() {
+	return `${chatLiteSessionStorageKeyBase}.${getChatLiteSyncScope()}`;
+}
+
 function getChatLiteSessionId() {
 	if (session.chatLiteSession) {
 		return session.chatLiteSession;
 	}
-	const liteSession = getChatLiteSessionFromLiteStorage();
+	const chatLiteSessionStorageKey = getChatLiteSessionStorageKey();
+	const liteSession = getChatLiteSessionFromLiteStorage(chatLiteSessionStorageKey);
 	if (liteSession) {
 		session.chatLiteSession = liteSession;
 		setStorage(chatLiteLegacySessionStorageKey, session.chatLiteSession, 9999);
@@ -18448,13 +19107,13 @@ function getChatLiteSessionId() {
 	const persisted = getStorage(chatLiteLegacySessionStorageKey);
 	if (persisted) {
 		session.chatLiteSession = persisted;
-		setChatLiteSessionInLiteStorage(session.chatLiteSession);
+		setChatLiteSessionInLiteStorage(session.chatLiteSession, chatLiteSessionStorageKey);
 		return session.chatLiteSession;
 	}
 	const seed = session.streamID || `${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`;
 	session.chatLiteSession = seed;
 	setStorage(chatLiteLegacySessionStorageKey, session.chatLiteSession, 9999);
-	setChatLiteSessionInLiteStorage(session.chatLiteSession);
+	setChatLiteSessionInLiteStorage(session.chatLiteSession, chatLiteSessionStorageKey);
 	return session.chatLiteSession;
 }
 
@@ -18462,25 +19121,18 @@ function handleChatLiteSessionStorageChange(event) {
 	if (!event || !event.key) {
 		return;
 	}
-	if (event.key !== chatLiteLegacySessionStorageKey && event.key !== chatLiteSessionStorageKey) {
+	const chatLiteSessionStorageKey = getChatLiteSessionStorageKey();
+	if (event.key !== chatLiteSessionStorageKey) {
 		return;
 	}
 
-	let persisted = "";
-	if (event.key === chatLiteSessionStorageKey) {
-		persisted = parseChatLiteSessionStorageValue(event.newValue) || getChatLiteSessionFromLiteStorage();
-	} else {
-		persisted = getStorage(chatLiteLegacySessionStorageKey);
-	}
+	const persisted = parseChatLiteSessionStorageValue(event.newValue) || getChatLiteSessionFromLiteStorage(chatLiteSessionStorageKey);
 	if (!persisted || persisted === session.chatLiteSession) {
 		return;
 	}
 
 	session.chatLiteSession = persisted;
 	setStorage(chatLiteLegacySessionStorageKey, session.chatLiteSession, 9999);
-	if (event.key !== chatLiteSessionStorageKey) {
-		setChatLiteSessionInLiteStorage(session.chatLiteSession);
-	}
 	if (session.chatLiteVisible && chatLiteOverlayFrame && document.body.contains(chatLiteOverlayFrame)) {
 		const desiredSrc = getChatLiteOverlayUrl();
 		if (chatLiteOverlayFrame.src !== desiredSrc) {
@@ -18502,21 +19154,21 @@ function parseChatLiteSessionStorageValue(rawValue) {
 	return "";
 }
 
-function getChatLiteSessionFromLiteStorage() {
+function getChatLiteSessionFromLiteStorage(storageKey = getChatLiteSessionStorageKey()) {
 	try {
-		const raw = localStorage.getItem(chatLiteSessionStorageKey);
+		const raw = localStorage.getItem(storageKey);
 		return parseChatLiteSessionStorageValue(raw);
 	} catch (e) {
 		return "";
 	}
 }
 
-function setChatLiteSessionInLiteStorage(value) {
+function setChatLiteSessionInLiteStorage(value, storageKey = getChatLiteSessionStorageKey()) {
 	if (!value) {
 		return;
 	}
 	try {
-		localStorage.setItem(chatLiteSessionStorageKey, JSON.stringify(value));
+		localStorage.setItem(storageKey, JSON.stringify(value));
 	} catch (e) {}
 }
 
@@ -18525,6 +19177,7 @@ function getChatLiteOverlayUrl() {
 	overlayUrl.searchParams.set("view", "activity");
 	overlayUrl.searchParams.set("embed", "1");
 	overlayUrl.searchParams.set("session", getChatLiteSessionId());
+	overlayUrl.searchParams.set("syncscope", getChatLiteSyncScope());
 	overlayUrl.searchParams.set("transparent", session.chatLiteTransparent ? "1" : "0");
 	if (session.chatLiteNoAvatar) {
 		overlayUrl.searchParams.set("noavatar", "1");
@@ -18574,12 +19227,14 @@ function ensureChatLiteOverlayFrame() {
 function openChatLiteSettings() {
 	const settingsUrl = new URL("./chat-lite/index.html", window.location.href);
 	settingsUrl.searchParams.set("session", getChatLiteSessionId());
+	settingsUrl.searchParams.set("syncscope", getChatLiteSyncScope());
 	if (session.chatLiteProfile) {
 		settingsUrl.searchParams.set("profile", session.chatLiteProfile);
 	}
 	const popup = window.open(settingsUrl.toString(), "chatLiteSetup", "width=980,height=860,resizable=yes,scrollbars=yes");
 	if (!popup && !session.cleanOutput) {
-		warnUser("Popup blocked. Open ./chat-lite/index.html manually.");
+		const safeUrl = escapeHtml(settingsUrl.toString());
+		warnUser(`Popup blocked.<br /><br /><a target="_blank" rel="noopener" href="${safeUrl}" onclick="closeModal()">Open Chat Lite setup</a>`, false, false);
 	}
 }
 
@@ -18691,7 +19346,7 @@ function initChatLiteIntegration() {
 		}
 	}
 
-	if (!hasChatLiteStateParam) {
+	if (hasChatLiteStateParam && !hasExplicitChatLiteDisable && (session.chatLiteEnabled || session.chatLiteButton || session.chatLiteAutoConfig)) {
 		const persistedVisible = getStorage("chatLiteVisible");
 		if (persistedVisible !== "") {
 			session.chatLiteVisible = normalizeChatLiteBoolean(persistedVisible, session.chatLiteVisible);
@@ -19758,6 +20413,13 @@ session.hangup = function (reload = false, estop = false) {
 		recordLocalVideo("stop", false, false, true); // screen share
 	} catch (e) { }
 
+	// Download session log before session object gets deleted at 1200ms
+	if (session.sessionLog && sessionLogData && sessionLogData.length) {
+		setTimeout(function () {
+			try { downloadSessionLog(); } catch (e) { errorlog(e); }
+		}, 1000);
+	}
+
 	try {
 		transferList.forEach(file => {
 			if (file.writer) {
@@ -20569,6 +21231,14 @@ function getQuickStats(sid = false) {
 function getDetailedState(sid = false) {
 	var streamList = {};
 	var guestFeeds = document.getElementById("guestFeeds");
+	var chunkedBufferDefault = typeof session.defaultChunkedBuffer !== "undefined" ? parseInt(session.defaultChunkedBuffer || 0) : 0;
+	if (session.buffer !== false) {
+		chunkedBufferDefault = parseInt(session.buffer || 0);
+	} else if (session.chunkbuffer !== false && typeof session.chunkbuffer !== "undefined") {
+		chunkedBufferDefault = parseInt(session.chunkbuffer || 0);
+	}
+	var chunkedBufferCeil = session.chunkbufferceil !== false ? parseInt(session.chunkbufferceil || 0) : false;
+	var chunkedBufferAdaptive = session.chunkbufferadaptive !== false;
 
 	for (var UUID in session.rpcs) {
 		if (session.rpcs[UUID].streamID) {
@@ -20579,6 +21249,11 @@ function getDetailedState(sid = false) {
 			item.streamID = session.rpcs[UUID].streamID;
 			item.label = session.rpcs[UUID].label;
 			item.group = session.rpcs[UUID].group;
+			item.chunkedBufferDefault = chunkedBufferDefault;
+			item.chunkedBufferOverride = session.rpcs[UUID].buffer !== false ? parseInt(session.rpcs[UUID].buffer || 0) : false;
+			item.chunkedBufferRequested = item.chunkedBufferOverride !== false ? item.chunkedBufferOverride : chunkedBufferDefault;
+			item.chunkedBufferCeil = chunkedBufferCeil;
+			item.chunkedBufferAdaptive = chunkedBufferAdaptive;
 
 			if (session.rpcs[UUID].stats && session.rpcs[UUID].stats.info) {
 				item.miscellaneous = session.rpcs[UUID].stats.info;
@@ -23372,9 +24047,6 @@ async function publishScreen() {
 	if (session.echoCancellation === true) {
 		constraints.audio.echoCancellation = true; // the defaults for screen publishing should be off.
 	}
-	if (session.voiceIsolation === true) {
-		constraint.audio.voiceIsolation = true;
-	}
 	try {
 		let supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
 		if (supportedConstraints.cursor) {
@@ -23477,6 +24149,9 @@ async function publishScreen() {
 				if (session.recordLocal !== false) {
 					getById("recordLocalbutton").classList.remove("hidden");
 				}
+				if (session.sessionLog) {
+					getById("sessionMarkerButton").classList.remove("hidden");
+				}
 				if (session.screensharebutton) {
 					getById("screensharebutton").className = "float";
 				}
@@ -23486,6 +24161,9 @@ async function publishScreen() {
 				//getById("reportbutton").style.display = "";
 			} else if (session.cleanish && session.recordLocal !== false) {
 				getById("recordLocalbutton").classList.remove("hidden");
+				if (session.sessionLog) {
+					getById("sessionMarkerButton").classList.remove("hidden");
+				}
 				getById("mutebutton").classList.add("hidden");
 				getById("mutespeakerbutton").classList.add("hidden");
 				getById("chatbutton").classList.add("hidden");
@@ -23939,7 +24617,7 @@ function publishWebcam(btn = false, miconly = false) {
 						if (!urlParams.has("push") && !urlParams.has("id") && !urlParams.has("permaid")
 							&& !urlParams.has("perma") && !urlParams.has("sticky")) {
 							// Show invite header INSTEAD of "You are in room"
-							var inviteURL = location.protocol + "//" + location.host + location.pathname + "?room=" + session.roomid;
+							var inviteURL = location.protocol + "//" + location.host + location.pathname + "?room=" + session.roomid + getCloudflareInviteParam();
 							var urlPW = urlParams.get("password") || urlParams.get("pass") || urlParams.get("pw") || urlParams.get("p");
 							if (urlPW === "false" || urlPW === "0" || urlPW === "off") {
 								// Password explicitly disabled
@@ -24012,6 +24690,9 @@ function publishWebcam(btn = false, miconly = false) {
 		if (session.recordLocal !== false) {
 			getById("recordLocalbutton").classList.remove("hidden");
 		}
+		if (session.sessionLog) {
+			getById("sessionMarkerButton").classList.remove("hidden");
+		}
 		if (session.screensharebutton) {
 			if (session.roomid) {
 				if (session.screenshareType === 3) {
@@ -24043,6 +24724,9 @@ function publishWebcam(btn = false, miconly = false) {
 		//getById("reportbutton").style.display = "";
 	} else if (session.cleanish && session.recordLocal !== false) {
 		getById("recordLocalbutton").classList.remove("hidden");
+		if (session.sessionLog) {
+			getById("sessionMarkerButton").classList.remove("hidden");
+		}
 		getById("mutebutton").classList.add("hidden");
 		getById("mutespeakerbutton").classList.add("hidden");
 		getById("chatbutton").classList.add("hidden");
@@ -24216,6 +24900,34 @@ function parseURL4Iframe(iframeURL) {
 	}
 }
 
+function getCloudflareInviteParam() {
+	if (!session.whipOutput) {
+		return "";
+	}
+
+	var whipOutput = "";
+	try {
+		whipOutput = (session.whipOutput || "").trim();
+	} catch (e) {
+		whipOutput = "";
+	}
+
+	if (!whipOutput || !/^https:\/\/cloudflare\.vdo\.ninja\//i.test(whipOutput)) {
+		return "";
+	}
+
+	var token = session.whipOutputToken || "";
+	if (!token) {
+		token = whipOutput.replace(/^https:\/\/cloudflare\.vdo\.ninja\//i, "");
+	}
+
+	if (!token) {
+		return "";
+	}
+
+	return "&cftoken=" + encodeURIComponent(token);
+}
+
 function soloLinkGenerator(streamID, scene = true) {
 	var codecGroupFlag = "";
 	if (session.codecGroupFlag) {
@@ -24245,6 +24957,9 @@ function soloLinkGenerator(streamID, scene = true) {
 
 	if (session.token) {
 		passAdd2 += "&token=" + session.token;
+	}
+	if (session.claimBypassKey) {
+		passAdd2 += "&roomkey=" + session.claimBypassKey;
 	}
 
 	// Add auth parameters if in auth mode
@@ -26578,17 +27293,17 @@ async function joinRoom(roomname) {
 					if (session.roomhost) {
 						if (session.defaultPassword === false) {
 							if (session.password === false) {
-								var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + "&password=false" + token;
+								var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + getCloudflareInviteParam() + "&password=false" + token;
 								warnUser("You can invite others with:\n\n<a target='_blank' title='Copy this link to the clipboard' style='cursor:pointer' onclick='copyFunction(this.innerText,event);' href='" + invite + "'>" + invite + "</a>", false, false);
 							} else {
 								generateHash(session.password + session.salt, 4).then(function (hash) {
 									// change the hash length from 4 to 3 when VDO.Ninja v24.10 or newer is in production.
-									var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + "&hash=" + hash + token;
+									var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + getCloudflareInviteParam() + "&hash=" + hash + token;
 									warnUser("You can invite others with:\n\n<a target='_blank' title='Copy this link to the clipboard' style='cursor:pointer' onclick='copyFunction(this.innerText,event)' href='" + invite + "'>" + invite + "</a>", false, false);
 								});
 							}
 						} else {
-							var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + token;
+							var invite = "https://" + location.host + location.pathname + "?room=" + session.roomid + getCloudflareInviteParam() + token;
 							warnUser("You can invite others with:\n\n<a target='_blank' title='Copy this link to the clipboard' style='cursor:pointer' onclick='copyFunction(this.innerText,event)' href='" + invite + "'>" + invite + "</a>", false, false);
 						}
 					}
@@ -26697,6 +27412,7 @@ async function joinRoom(roomname) {
 
 async function createRoom(roomname = false, reload = false) {
 	var passwordRoom = "";
+	var createdViaWizard = (reload !== true) && (roomname === false);
 	if (reload === true) {
 		let oldDirectorSettings = getStorage("directorOtherSettings");
 		if (!oldDirectorSettings || typeof oldDirectorSettings !== "object") {
@@ -26761,61 +27477,64 @@ async function createRoom(roomname = false, reload = false) {
 		}
 		log(roomname);
 
-		passwordRoom = document.getElementById("passwordRoom") ? sanitizePassword(document.getElementById("passwordRoom").value) : "";
+		if (createdViaWizard) {
+			passwordRoom = document.getElementById("passwordRoom") ? sanitizePassword(document.getElementById("passwordRoom").value) : "";
 
-		// Pre-join SSO room setup (optional)
-		try {
-			var ssoBox = getById('useSSOForRoom');
-			if (ssoBox && ssoBox.checked) {
-				// Enable auth mode for this room
-				session.authMode = true;
-				updateURL("auth");
-				// Director should sign in before managing the room
-				// Note: join gating handled by vdoAuth.joinRoom in joinRoom()
-				// Capture desired access mode to apply after join
-				var selected = document.querySelector('input[name="ssoAccessMode"]:checked');
-				var accessMode = (selected && selected.value) ? selected.value : 'public';
-				var allowlist = [];
-				if (accessMode === 'allowlist') {
-					var csv = (getById('preAllowlistCSV') && getById('preAllowlistCSV').value) ? getById('preAllowlistCSV').value : '';
-					if (csv) {
-						allowlist = csv.split(',').map(x => x.trim()).filter(x => x.length > 0);
+			// Pre-join SSO room setup (optional)
+			try {
+				var ssoBox = getById('useSSOForRoom');
+				if (ssoBox && ssoBox.checked) {
+					// Enable auth mode for this room
+					session.authMode = true;
+					updateURL("auth");
+					// Director should sign in before managing the room
+					// Note: join gating handled by vdoAuth.joinRoom in joinRoom()
+					// Capture desired access mode to apply after join
+					var selected = document.querySelector('input[name="ssoAccessMode"]:checked');
+					var accessMode = (selected && selected.value) ? selected.value : 'public';
+					var allowlist = [];
+					if (accessMode === 'allowlist') {
+						var csv = (getById('preAllowlistCSV') && getById('preAllowlistCSV').value) ? getById('preAllowlistCSV').value : '';
+						if (csv) {
+							allowlist = csv.split(',').map(x => x.trim()).filter(x => x.length > 0);
+						}
+					}
+					// Store to apply after join
+					session.pendingRoomSettings = { accessMode: accessMode, allowlist: allowlist };
+					// Persist only when an OAuth redirect is expected.
+					if (!session.authToken && !session.universalToken) {
+						try {
+							sessionStorage.setItem('vdo_pending_room_settings', JSON.stringify(session.pendingRoomSettings));
+							sessionStorage.setItem('vdo_pending_room_settings_recover', '1');
+						} catch(e2){}
+					} else {
+						try {
+							sessionStorage.removeItem('vdo_pending_room_settings');
+							sessionStorage.removeItem('vdo_pending_room_settings_recover');
+						} catch(e2){}
+					}
+					// If guests must sign in (authenticated/allowlist), mark as requireAuth for UX
+					if (accessMode === 'authenticated' || accessMode === 'allowlist') {
+						session.requireAuth = true;
 					}
 				}
-				// Store to apply after join
-				session.pendingRoomSettings = { accessMode: accessMode, allowlist: allowlist };
-				// Persist only when an OAuth redirect is expected.
-				if (!session.authToken && !session.universalToken) {
-					try {
-						sessionStorage.setItem('vdo_pending_room_settings', JSON.stringify(session.pendingRoomSettings));
-						sessionStorage.setItem('vdo_pending_room_settings_recover', '1');
-					} catch(e2){}
-				} else {
-					try {
-						sessionStorage.removeItem('vdo_pending_room_settings');
-						sessionStorage.removeItem('vdo_pending_room_settings_recover');
-					} catch(e2){}
-				}
-				// If guests must sign in (authenticated/allowlist), mark as requireAuth for UX
-				if (accessMode === 'authenticated' || accessMode === 'allowlist') {
-					session.requireAuth = true;
-				}
-				} else if (session.authMode && !session.pendingRoomSettings) {
-					// Recover settings after OAuth redirect (checkbox state lost on reload)
-					try {
-						var shouldRecover = sessionStorage.getItem('vdo_pending_room_settings_recover') === '1';
-						var stored = sessionStorage.getItem('vdo_pending_room_settings');
-						if (shouldRecover && stored) {
-							session.pendingRoomSettings = JSON.parse(stored);
-							if (session.pendingRoomSettings.accessMode === 'authenticated' || session.pendingRoomSettings.accessMode === 'allowlist') {
-								session.requireAuth = true;
-							}
-						}
-						sessionStorage.removeItem('vdo_pending_room_settings');
-						sessionStorage.removeItem('vdo_pending_room_settings_recover');
-					} catch(e2){}
-				}
 			} catch (e) { errorlog(e); }
+		}
+		if (session.authMode && !session.pendingRoomSettings) {
+			// Recover settings after OAuth redirect (checkbox state lost on reload)
+			try {
+				var shouldRecover = sessionStorage.getItem('vdo_pending_room_settings_recover') === '1';
+				var stored = sessionStorage.getItem('vdo_pending_room_settings');
+				if (shouldRecover && stored) {
+					session.pendingRoomSettings = JSON.parse(stored);
+					if (session.pendingRoomSettings.accessMode === 'authenticated' || session.pendingRoomSettings.accessMode === 'allowlist') {
+						session.requireAuth = true;
+					}
+				}
+				sessionStorage.removeItem('vdo_pending_room_settings');
+				sessionStorage.removeItem('vdo_pending_room_settings_recover');
+			} catch(e2){}
+		}
 		}
 
 	var parsedClaimCap = parseInt(session.claimRoomCap);
@@ -26825,11 +27544,33 @@ async function createRoom(roomname = false, reload = false) {
 		session.claimRoomCap = false;
 	}
 	session.claimBypassKey = sanitizePassword(session.claimBypassKey || "") || false;
+	session.roomBypassKey = sanitizePassword(session.roomBypassKey || "") || false;
+	if (!session.claimBypassKey && session.roomBypassKey) {
+		session.claimBypassKey = session.roomBypassKey;
+	} else if (!session.roomBypassKey && session.claimBypassKey) {
+		session.roomBypassKey = session.claimBypassKey;
+	}
 	session.requireServerApproval = session.requireServerApproval === true;
 	try {
-		var roomApprovalToggle = getById("requireApprovalForRoom");
-		if (roomApprovalToggle) {
-			session.requireServerApproval = !!roomApprovalToggle.checked;
+		if (createdViaWizard) {
+			var roomApprovalToggle = getById("requireApprovalForRoom");
+			if (roomApprovalToggle) {
+				session.requireServerApproval = !!roomApprovalToggle.checked;
+			}
+		}
+		if (createdViaWizard && session.requireServerApproval && !session.claimBypassKey) {
+			var generatedRoomKey = "";
+			if (session.generateStreamID && typeof session.generateStreamID === "function") {
+				generatedRoomKey = session.generateStreamID(14);
+			} else {
+				generatedRoomKey = Math.random().toString(36).substring(2, 16);
+			}
+			generatedRoomKey = sanitizePassword(generatedRoomKey || "");
+			if (generatedRoomKey) {
+				session.claimBypassKey = generatedRoomKey;
+				session.roomBypassKey = generatedRoomKey;
+				updateURL("roomkey=" + generatedRoomKey, true, false);
+			}
 		}
 		if (session.requireServerApproval) {
 			updateURL("requireapproval");
@@ -27212,6 +27953,48 @@ function toggleCoDirector_transfer(ele) {
 	session.codirector_transfer = ele.checked;
 }
 
+function buildCoDirectorInviteURL() {
+	var token = "";
+	if (session.token) {
+		token += "&token=" + session.token;
+	}
+
+	var roomKeyParam = session.claimBypassKey ? "&roomkey=" + session.claimBypassKey : "";
+	var url = "https://" + location.host + location.pathname + "?dir=" + session.roomid + getCloudflareInviteParam() + "&codirector=" + session.directorPassword + token + roomKeyParam;
+
+	if (session.codirectorNoClaim) {
+		url += "&noclaim";
+	}
+	if (session.approval_popup) {
+		url += "&approvepopup";
+	}
+
+	var implicitAuthSecret = session.authMode && session.authImplicitRoomSecret && (session.password === session.authImplicitRoomSecret);
+	if (implicitAuthSecret) {
+		url += "&auth";
+	}
+	if ((session.password !== session.sitePassword) && !implicitAuthSecret) {
+		if (session.password === false) {
+			url += "&password=false";
+		} else {
+			url += "&password=" + session.password;
+		}
+	}
+
+	return url;
+}
+
+function updateCoDirectorInviteLink() {
+	if (getById("codirectorSettings_invite")) {
+		getById("codirectorSettings_invite").value = buildCoDirectorInviteURL();
+	}
+}
+
+function toggleCoDirector_noClaim(ele) {
+	session.codirectorNoClaim = ele.checked;
+	updateCoDirectorInviteLink();
+}
+
 function updateConfirmAlt(context, inputText) {
 	try {
 		if (!context) { return; }
@@ -27233,26 +28016,12 @@ function toggleCoDirector_approve(ele) {
 
 // Route approvals are default; no UI toggle needed anymore.
 
-	function toggleApprovalPopup(ele) {
-		session.approval_popup = ele.checked;
-		try {
-				var token = "";
-				if (session.token) { token += "&token=" + session.token; }
-				var roomKeyParam = session.claimBypassKey ? "&roomkey=" + session.claimBypassKey : "";
-				var url = "https://" + location.host + location.pathname + "?dir=" + session.roomid + "&codirector=" + session.directorPassword + token + roomKeyParam;
-				if (session.approval_popup) { url += "&approvepopup"; }
-				try { console.log("[flags] toggled approval_popup=" + session.approval_popup + "; co-director invite=" + url); } catch (e) { }
-				var implicitAuthSecret = session.authMode && session.authImplicitRoomSecret && (session.password === session.authImplicitRoomSecret);
-				if (implicitAuthSecret) { url += "&auth"; }
-				if ((session.password !== session.sitePassword) && !implicitAuthSecret) {
-					if (session.password === false) { url += "&password=false"; }
-					else { url += "&password=" + session.password; }
-				}
-				if (getById("codirectorSettings_invite")) {
-					getById("codirectorSettings_invite").value = url;
-				}
-			} catch (e) { /* noop */ }
-		}
+function toggleApprovalPopup(ele) {
+	session.approval_popup = ele.checked;
+	try {
+		updateCoDirectorInviteLink();
+	} catch (e) { /* noop */ }
+}
 
 async function toggleCoDirector(ele) {
 	//session.coDirectorAllowed = ele.checked;
@@ -27289,30 +28058,13 @@ async function toggleCoDirector(ele) {
 	if (session.codirector_changeURL) {
 		getById("codirectorSettings_changeurl").checked = true;
 	} else {
-		getById(codirectorSettings_changeurl).checked = false;
+		getById("codirectorSettings_changeurl").checked = false;
 	}
 
-	var token = "";
-	if (session.token) {
-		token += "&token=" + session.token;
+	if (getById("codirectorSettings_noclaim")) {
+		getById("codirectorSettings_noclaim").checked = !!session.codirectorNoClaim;
 	}
-	var roomKeyParam = session.claimBypassKey ? "&roomkey=" + session.claimBypassKey : "";
-
-	getById("codirectorSettings_invite").value = "https://" + location.host + location.pathname + "?dir=" + session.roomid + "&codirector=" + session.directorPassword + token + roomKeyParam;
-	if (session.approval_popup) {
-		getById("codirectorSettings_invite").value += "&approvepopup";
-	}
-	var implicitAuthSecret = session.authMode && session.authImplicitRoomSecret && (session.password === session.authImplicitRoomSecret);
-	if (implicitAuthSecret) {
-		getById("codirectorSettings_invite").value += "&auth";
-	}
-	if ((session.password !== session.sitePassword) && !implicitAuthSecret) {
-		if (session.password === false) {
-			getById("codirectorSettings_invite").value += "&password=false";
-		} else {
-			getById("codirectorSettings_invite").value += "&password=" + session.password;
-		}
-	}
+	updateCoDirectorInviteLink();
 
 	getById("codirectorSettings").style.display = "block";
 }
@@ -27525,6 +28277,12 @@ async function createRoomCallback(passAdd, passAdd2) {
 	}
 
 	session.director = true;
+	try {
+		if (sessionStorage.getItem('vdo_sso_disabled_notice') === '1') {
+			sessionStorage.removeItem('vdo_sso_disabled_notice');
+			warnUser("SSO has been disabled for this director room. New guest links will not include SSO, and previous SSO guest invites may not work with this room.", 6000);
+		}
+	} catch (e) {}
 	session.pendingJoinRequests = [];
 	session.pendingJoinPrompted = new Set([]);
 	updateJoinRequestPanel(false);
@@ -27545,37 +28303,20 @@ async function createRoomCallback(passAdd, passAdd2) {
 		getById("coDirectorEnable").checked = true;
 		getById("coDirectorEnableSpan").style.display = "none";
 
-		var token = "";
-		if (session.token) {
-			token += "&token=" + session.token;
-		}
-			var roomKeyParam = session.claimBypassKey ? "&roomkey=" + session.claimBypassKey : "";
+		updateCoDirectorInviteLink();
 
-			getById("codirectorSettings_invite").value = "https://" + location.host + location.pathname + "?dir=" + session.roomid + "&codirector=" + session.directorPassword + token + roomKeyParam;
-			if (session.approval_popup) {
-				getById("codirectorSettings_invite").value += "&approvepopup";
-			}
-			var implicitAuthSecret = session.authMode && session.authImplicitRoomSecret && (session.password === session.authImplicitRoomSecret);
-			if (implicitAuthSecret) {
-				getById("codirectorSettings_invite").value += "&auth";
-			}
-			if ((session.password !== session.sitePassword) && !implicitAuthSecret) {
-				if (session.password == false) {
-					getById("codirectorSettings_invite").value += "&password=false";
-				} else {
-					getById("codirectorSettings_invite").value += "&password=" + session.password;
-				}
-			}
-
-			if (session.codirector_transfer) {
-				getById("codirectorSettings_transfer").checked = true;
-			} else {
+		if (session.codirector_transfer) {
+			getById("codirectorSettings_transfer").checked = true;
+		} else {
 			getById("codirectorSettings_transfer").checked = false;
 		}
 		if (session.codirector_changeURL) {
 			getById("codirectorSettings_changeurl").checked = true;
 		} else {
 			getById("codirectorSettings_changeurl").checked = false;
+		}
+		if (getById("codirectorSettings_noclaim")) {
+			getById("codirectorSettings_noclaim").checked = !!session.codirectorNoClaim;
 		}
 		getById("codirectorSettings").style.display = "block";
 	}
@@ -27639,9 +28380,10 @@ async function createRoomCallback(passAdd, passAdd2) {
 		}
 	}
 
-	getById("director_block_1").dataset.raw = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams;
-	getById("director_block_1").href = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams;
-	getById("director_block_1").innerText = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams;
+	var cloudflareInviteParam = getCloudflareInviteParam();
+	getById("director_block_1").dataset.raw = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams + cloudflareInviteParam;
+	getById("director_block_1").href = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams + cloudflareInviteParam;
+	getById("director_block_1").innerText = "https://" + location.host + location.pathname + "?room=" + session.roomid + broadcastString + passAdd + wss + queue + token + authParams + cloudflareInviteParam;
 
 	// For scene links, use universal token if available
 	var sceneAuthParams = "";
@@ -33265,26 +34007,37 @@ function flattenConstraints(constraints) {
 	return result;
 }
 
-async function getAudioOnly(selector, trackid = null, override = false, requestToken = null) {
+async function getAudioOnly(selector, trackid = null, override = false, requestToken = null, preserveSelectedAudio = false) {
 	var audioSelect = document.querySelector(selector).querySelectorAll("input,option");
 	var audioList = [];
 	var streams = [];
 	log("getAudioOnly()");
 
-	// Fast-path: if override includes a specific deviceId, use it directly
-	if (override && override.audio && (override.audio.deviceId || (override.audio.deviceId && override.audio.deviceId.exact))) {
-		let o = JSON.parse(JSON.stringify(override));
-		if (typeof o.audio.deviceId === "string") {
-			o.audio.deviceId = { exact: o.audio.deviceId };
+	let overrideAudioConstraint = false;
+	let overrideAudioDeviceId = false;
+	if (override && override.audio) {
+		overrideAudioConstraint = JSON.parse(JSON.stringify(override));
+		if (overrideAudioConstraint.audio.deviceId) {
+			if (typeof overrideAudioConstraint.audio.deviceId === "string") {
+				overrideAudioConstraint.audio.deviceId = { exact: overrideAudioConstraint.audio.deviceId };
+			}
+			if (overrideAudioConstraint.audio.deviceId && typeof overrideAudioConstraint.audio.deviceId === "object") {
+				overrideAudioDeviceId = overrideAudioConstraint.audio.deviceId.exact || overrideAudioConstraint.audio.deviceId.ideal || false;
+			} else {
+				overrideAudioDeviceId = overrideAudioConstraint.audio.deviceId;
+			}
 		}
-		o.video = false;
+		overrideAudioConstraint.video = false;
+	}
+	if (overrideAudioConstraint && overrideAudioDeviceId && !preserveSelectedAudio) {
+		let constraint = overrideAudioConstraint;
 		if (Firefox) {
-			o = toFirefoxConstraint(o);
+			constraint = toFirefoxConstraint(constraint);
 		}
 		warnlog("navigator.mediaDevices.getUserMedia starting (override)...");
 		if (navigator.mediaDevices) {
 			var stream = await navigator.mediaDevices
-				.getUserMedia(o)
+				.getUserMedia(constraint)
 				.then(function (stream2) {
 					log("get audio sucecss");
 					pokeIframeAPI("local-microphone-event");
@@ -33304,6 +34057,7 @@ async function getAudioOnly(selector, trackid = null, override = false, requestT
 		}
 		return streams;
 	}
+
 	for (var i = 0; i < audioSelect.length; i++) {
 		if (audioSelect[i].value == "ZZZ") {
 			continue;
@@ -33434,12 +34188,9 @@ async function getAudioOnly(selector, trackid = null, override = false, requestT
 			}
 		}
 		constraint.video = false;
-		if (override !== false) {
+		if (overrideAudioConstraint && (!overrideAudioDeviceId || audioList[i].value === overrideAudioDeviceId)) {
 			log("Override true");
-			constraint = override;
-			if (constraint.audio && typeof constraint.audio.deviceId === "string") {
-				constraint.audio.deviceId = { exact: constraint.audio.deviceId };
-			}
+			constraint = JSON.parse(JSON.stringify(overrideAudioConstraint));
 		}
 
 		if (audioList[i].value && SelectedAudioInputDevices) {
@@ -34404,6 +35155,12 @@ function obfuscateURL(input) {
 	input = input.replace("?videobitrate=", "?vb=");
 	input = input.replace("&bitrate=", "&vb=");
 	input = input.replace("?bitrate=", "?vb=");
+	input = input.replace("&mediamtxbitrate=", "&wovb=");
+	input = input.replace("?mediamtxbitrate=", "?wovb=");
+	input = input.replace("&whipbitrate=", "&wovb=");
+	input = input.replace("?whipbitrate=", "?wovb=");
+	input = input.replace("&whipoutvideobitrate=", "&wovb=");
+	input = input.replace("?whipoutvideobitrate=", "?wovb=");
 
 	input = input.replace("?audiodevice=", "?ad=");
 	input = input.replace("&audiodevice=", "&ad=");
@@ -34425,6 +35182,9 @@ function obfuscateURL(input) {
 	input = input.replace("?password=", "?p=");
 	input = input.replace("&password=", "&p=");
 
+	input = input.replace("?roomkey=", "?rk=");
+	input = input.replace("&roomkey=", "&rk=");
+
 	input = input.replace("&maxvideobitrate=", "&mvb=");
 	input = input.replace("?maxvideobitrate=", "?mvb=");
 
@@ -34443,8 +35203,8 @@ function obfuscateURL(input) {
 	input = input.replace("&cleanoutput=", "&clean=");
 	input = input.replace("?cleanoutput=", "?clean=");
 
-	input = input.replace("&maxviewers=", "&clean=");
-	input = input.replace("?maxviewers=", "?clean=");
+	input = input.replace("&maxviewers=", "&mv=");
+	input = input.replace("?maxviewers=", "?mv=");
 
 	input = input.replace("&frameRate=", "&fr=");
 	input = input.replace("?frameRate=", "?fr=");
@@ -34593,6 +35353,7 @@ async function toggleScreenShare(reload = false) {
 				} else {
 					log("remove ss track 44");
 					session.streamSrc.removeTrack(track);
+					track.onended = null;
 					track.stop();
 				}
 			});
@@ -35672,9 +36433,6 @@ async function grabScreen(quality = 0, audio = true, videoOnEnd = false) {
 	if (session.noiseSuppression === true) {
 		constraints.audio.noiseSuppression = true;
 	}
-	if (session.voiceIsolation === true) {
-		constraint.audio.voiceIsolation = true;
-	}
 	if (audio == false) {
 		constraints.audio = false;
 	}
@@ -35950,7 +36708,13 @@ function toggleBufferSettings(UUID) {
 
 		var buffer = session.rpcs[UUID].buffer;
 		if (buffer === false) {
-			buffer = session.buffer || 0;
+			if (session.buffer !== false) {
+				buffer = session.buffer || 0;
+			} else if (session.chunkbuffer !== false) {
+				buffer = session.chunkbuffer || 0;
+			} else {
+				buffer = 0;
+			}
 		}
 		getById("bufferSettings")
 			.querySelectorAll("input")
@@ -36124,6 +36888,7 @@ function changeLTB(ele) {
 
 function changeTRB(ele) {
 	session.totalRoomBitrate = parseInt(ele.value);
+	session.totalRoomBitrate_userSet = true;
 	var msg = {};
 	msg.directorSettings = {};
 	msg.directorSettings.totalRoomBitrate = session.totalRoomBitrate;
@@ -37456,7 +38221,7 @@ function pushOutVideoTrack(track) {
 	session.refreshScale();
 }
 
-async function grabAudio(selector = "#audioSource", trackid = null, override = false, callbackUUID = false, callback = false) {
+async function grabAudio(selector = "#audioSource", trackid = null, override = false, callbackUUID = false, callback = false, preserveSelectedAudio = false) {
 	// trackid is the excluded track , callback is UUID
 
 	if (activatedPreview == true) {
@@ -37593,7 +38358,7 @@ async function grabAudio(selector = "#audioSource", trackid = null, override = f
 		errorlog(e);
 	}
 
-	var streams = await getAudioOnly(selector, trackid, override, gumAudioID); // Get audio streams
+	var streams = await getAudioOnly(selector, trackid, override, gumAudioID, preserveSelectedAudio); // Get audio streams
 
 	if (gumAudioID !== getAudioUserMediaRequestID) {
 		try {
@@ -38650,6 +39415,9 @@ async function press2talk(clean = false) {
 
 	if (!session.showDirector && session.recordLocal !== false) {
 		getById("recordLocalbutton").classList.remove("hidden");
+	}
+	if (session.sessionLog) {
+		getById("sessionMarkerButton").classList.remove("hidden");
 	}
 
 	if (session.screenshareType === 3) {
@@ -40005,6 +40773,90 @@ async function publishScreen2(constraints, audioList = [], audio = true, overrid
 
 var transferList = [];
 var msgTransferList = [];
+var drawingRequestList = [];
+
+function notifyChatActionAvailable() {
+	if (session.chatbutton === false) {
+		return;
+	}
+	updateMessages();
+	if (session.beepToNotify) {
+		playtone();
+	}
+	if (session.chat == false) {
+		getById("chattoggle").className = "las la-comments toggleSize pulsate";
+		getById("chatbutton").className = "float";
+		if (getById("chatNotification").value) {
+			getById("chatNotification").value = getById("chatNotification").value + 1;
+		} else {
+			getById("chatNotification").value = 1;
+		}
+		getById("chatNotification").classList.add("notification", "red");
+	}
+}
+
+function addDrawingPermissionRequest(UUID, altUUID = false, targetUUID = false, targetIsScreen = false) {
+	try {
+		var requesterUUID = UUID;
+		if ((!requesterUUID || !session.pcs || !session.pcs[requesterUUID]) && altUUID && session.pcs && session.pcs[altUUID]) {
+			requesterUUID = altUUID;
+		}
+		if (session.scene !== false || session.view || session.cleanOutput) {
+			if (session.resolveDrawingRequest) {
+				session.resolveDrawingRequest(requesterUUID, false, altUUID, targetUUID, targetIsScreen);
+			}
+			return;
+		}
+		if (session.chatbutton === false) {
+			if (session.resolveDrawingRequest) {
+				session.resolveDrawingRequest(requesterUUID, false, altUUID, targetUUID, targetIsScreen);
+			}
+			return;
+		}
+		if (!requesterUUID || !session.pcs || !session.pcs[requesterUUID]) {
+			return;
+		}
+		if (session.pcs[requesterUUID].drawControlAllowed) {
+			if (session.resolveDrawingRequest) {
+				session.resolveDrawingRequest(requesterUUID, true, altUUID, targetUUID, targetIsScreen);
+			}
+			return;
+		}
+		for (var i = 0; i < drawingRequestList.length; i++) {
+			if (drawingRequestList[i].UUID === requesterUUID && drawingRequestList[i].targetUUID === targetUUID && drawingRequestList[i].status === 0) {
+				return;
+			}
+		}
+		drawingRequestList.push({
+			UUID: requesterUUID,
+			altUUID,
+			targetUUID,
+			targetIsScreen: !!targetIsScreen,
+			status: 0,
+			time: Date.now()
+		});
+		notifyChatActionAvailable();
+	} catch (e) {
+		errorlog(e);
+	}
+}
+
+function resolveDrawingPermissionRequest(ele, approved) {
+	try {
+		const idx = parseInt(ele.dataset.drawingIdx);
+		const request = drawingRequestList[idx];
+		if (!request) {
+			return;
+		}
+		request.status = approved ? 1 : 2;
+		if (session.resolveDrawingRequest) {
+			session.resolveDrawingRequest(request.UUID, approved, request.altUUID, request.targetUUID, request.targetIsScreen);
+		}
+		updateMessages();
+	} catch (e) {
+		errorlog(e);
+	}
+}
 
 function cancelFile(ele) {
 	var idx = ele.dataset.tid;
@@ -40114,16 +40966,54 @@ function updateDownloadLink(idx) {
 }
 
 function showDownloadLinks() {
+	msgTransferList = [];
 	if (session.nodownloads) {
 		return;
 	} // downloads are blocked
-	msgTransferList = [];
 	if (!transferList || !transferList.length) {
 		return;
 	}
 	for (var i = 0; i < transferList.length; i++) {
 		fileShareMessage(transferList[i], i);
 	}
+}
+
+function showDrawingPermissionRequests() {
+	if (!drawingRequestList || !drawingRequestList.length) {
+		return;
+	}
+	for (var i = 0; i < drawingRequestList.length; i++) {
+		drawingPermissionRequestMessage(drawingRequestList[i], i);
+	}
+}
+
+function drawingPermissionRequestMessage(request, idx) {
+	if (!request || request.status === 3) {
+		return;
+	}
+
+	var peer = session.pcs && session.pcs[request.UUID] ? session.pcs[request.UUID] : false;
+	if ((!peer || !peer.label) && request.altUUID && session.pcs && session.pcs[request.altUUID]) {
+		peer = session.pcs[request.altUUID];
+	}
+	var label = peer && peer.label ? sanitizeLabel(peer.label) : ("Guest " + request.UUID.substring(0, 8));
+	var targetUUID = request.altUUID || request.UUID;
+	var safeTarget = escapeHtml(targetUUID);
+	var data = {};
+	data.idx = "drawing_" + idx;
+	if (request.status === 0) {
+		data.msg = " wants to draw or ping on your video.<br />Allow annotation? <button data-drawing-idx='" + idx + "' data-uuid='" + safeTarget + "' onclick='resolveDrawingPermissionRequest(this, true);'>Allow</button><button data-drawing-idx='" + idx + "' data-uuid='" + safeTarget + "' style='margin:10px 0 10px 2px;' onclick='resolveDrawingPermissionRequest(this, false);'>Deny</button>";
+	} else if (request.status === 1) {
+		data.msg = " drawing access allowed.";
+	} else if (request.status === 2) {
+		data.msg = " drawing access denied.";
+	} else {
+		return;
+	}
+	data.label = "<b>" + label + "</b>";
+	data.type = "action";
+	data.time = request.time;
+	msgTransferList.push(data);
 }
 
 function fileShareMessage(fileinfo, idx) {
@@ -42723,6 +43613,9 @@ function setupClosedCaptions() {
 			if (Final_transcript.length > 0) {
 				log("FINAL:" + Final_transcript);
 				try {
+					if (session.sessionLog && session.sessionLogTranscript) {
+						pushSessionLogEntry("transcript", session.label || "Me", Final_transcript);
+					}
 					var data = {};
 					data.isFinal = true;
 					data.transcript = Final_transcript;
@@ -42798,10 +43691,10 @@ async function requestGoogleDriveRecord(ele, state = null, bitrate = null, event
 
 		var filename = UUID;
 		if (session.rpcs[UUID]) {
-			filename = session.rpcs[UUID].label || session.rpcs[UUID].streamID || UUID;
+			filename = buildRecordingFilenameBase(session.rpcs[UUID].label, session.rpcs[UUID].streamID, UUID, 55);
+		} else {
+			filename = buildRecordingFilenameBase(UUID, false, "recording", 55);
 		}
-		filename = filename.replace(/[\W]+/g, "_");
-		filename = filename.substring(0, 55);
 		filename += "_" + Date.now().toString();
 		if (SafariVersion) {
 			filename += ".mp4";
@@ -42886,9 +43779,8 @@ async function multiGdriveRecord() {
 		const UUID = button.dataset.UUID || null;
 
 		// Generate unique filename for each recording
-		const filename = ((session.rpcs[UUID] && (session.rpcs[UUID].label || session.rpcs[UUID].streamID)) || UUID)
-			.replace(/[\W]+/g, "_")
-			.substring(0, 55) +
+		const rpc = session.rpcs[UUID] || {};
+		const filename = buildRecordingFilenameBase(rpc.label, rpc.streamID, UUID || "recording", 55) +
 			"_" + Date.now().toString() +
 			(SafariVersion ? ".mp4" : ".webm");
 
@@ -45337,7 +46229,7 @@ function applyAudioHack(constraint, value = null, deviceid = "default") {
 	enumerateDevices()
 		.then(gotDevices2)
 		.then(function () {
-			grabAudio("#audioSource3", null, new_constraints, false, saveAudioResult);
+			grabAudio("#audioSource3", null, new_constraints, false, saveAudioResult, true);
 		});
 }
 
@@ -48999,7 +49891,7 @@ function pauseVideo(videoEle, update = true) {
 		} else if (link.getAttribute("data-action") === "UnPause") {
 			unPauseVideo(taskItemInContext);
 		} else if (link.getAttribute("data-action") === "PiP") {
-			togglePictureInPicture(taskItemInContext);
+			togglePictureInPicture(resolveMediaContextElement(taskItemInContext));
 		} else if (link.getAttribute("data-action") === "PiP2") {
 			PictureInPicturePageToggle();
 		} else if (link.getAttribute("data-action") === "Record") {
@@ -49024,32 +49916,42 @@ function pauseVideo(videoEle, update = true) {
 		} else if (link.getAttribute("data-action") === "SaveFrameToDisk") {
 			saveVideoFrameToDisk(taskItemInContext, e);
 		} else if (link.getAttribute("data-action") === "DrawOnVideo") {
-			if (taskItemInContext.clearDrawOnVideo) {
-				taskItemInContext.clearDrawOnVideo();
+			var drawingElement = taskItemInContext;
+			if (drawingElement.clearDrawOnVideo) {
+				drawingElement.clearDrawOnVideo();
+				drawingElement.clearDrawOnVideo = null;
 				taskItemInContext.clearDrawOnVideo = null;
 			} else {
-				taskItemInContext.clearDrawOnVideo = drawOnThis(taskItemInContext);
+				var clearDraw = drawOnThis(drawingElement);
+				if (clearDraw) {
+					drawingElement.clearDrawOnVideo = clearDraw;
+					taskItemInContext.clearDrawOnVideo = clearDraw;
+				}
 			}
 		} else if (link.getAttribute("data-action") === "ChangeBuffer") {
 			toggleBufferSettings(taskItemInContext.dataset.UUID);
 		} else if (link.getAttribute("data-action") === "Cast") {
 			//copyFunction(taskItemInContext.href);
 		} else if (link.getAttribute("data-action") === "Controls") {
+			var mediaElement = resolveMediaContextElement(taskItemInContext);
 
 			//getById("main").classList.add("forcecontrols"); // adds an annoying shadow to the bar area
 			//taskItemInContext.showControlBar = true;
 			//checkVideoControlBar(taskItemInContext);
 			//taskItemInContext.controls = false;
 			//ele.focus();
-			taskItemInContext.removeAttribute("controls");
-			taskItemInContext.setAttribute("controls", "");
-			taskItemInContext.controls = true;
+			mediaElement.removeAttribute("controls");
+			mediaElement.setAttribute("controls", "");
+			mediaElement.controls = true;
+			taskItemInContext.controls = mediaElement.controls;
 
 		} else if (link.getAttribute("data-action") === "HideControls") {
+			var mediaElement = resolveMediaContextElement(taskItemInContext);
 
 			//taskItemInContext.showControlBar = false;
-			taskItemInContext.controls = false;
-			taskItemInContext.removeAttribute("controls");
+			mediaElement.controls = false;
+			mediaElement.removeAttribute("controls");
+			taskItemInContext.controls = mediaElement.controls;
 
 		} else if (link.getAttribute("data-action") === "Edit") {
 			//copyFunction(taskItemInContext.href);
@@ -49261,6 +50163,23 @@ function pauseVideo(videoEle, update = true) {
 			} else if (items[i].getAttribute("data-action") === "PiP2") {
 				if (typeof documentPictureInPicture !== "undefined") {
 					items[i].parentNode.classList.remove("hidden");
+				} else {
+					items[i].parentNode.classList.add("hidden");
+				}
+			} else if (items[i].getAttribute("data-action") === "DrawOnVideo") {
+				var drawLabel = items[i].querySelector("[data-translate='draw-on-video']") || items[i].querySelector("span");
+				if (taskItemInContext.id == "videosource" || taskItemInContext.id == "screensharesource" || taskItemInContext.id == "previewWebcam") {
+					items[i].parentNode.classList.remove("hidden");
+					if (drawLabel) {
+						drawLabel.textContent = taskItemInContext.clearDrawOnVideo ? "Stop draw mode" : "Draw/Ping on video";
+					}
+				} else if (taskItemInContext.dataset && taskItemInContext.dataset.UUID && session.rpcs && session.rpcs[taskItemInContext.dataset.UUID]) {
+					items[i].parentNode.classList.remove("hidden");
+					if (drawLabel) {
+						drawLabel.textContent = taskItemInContext.clearDrawOnVideo
+							? "Stop draw mode"
+							: (session.rpcs[taskItemInContext.dataset.UUID].allowDrawing ? "Draw/Ping on video" : "Request draw access");
+					}
 				} else {
 					items[i].parentNode.classList.add("hidden");
 				}
@@ -49518,6 +50437,10 @@ function sendChatMessage(chatMsg = false, bc = false) {
 	}
 
 	msg = convertShortcodes(msg);
+
+	if (session.sessionLog && !msg.startsWith("/")) {
+		pushSessionLogEntry("chat", session.label || "Me", msg);
+	}
 
 	var label = "";
 	if (session.label) {
@@ -50074,6 +50997,11 @@ function getChatMessage(msg, label = false, director = false, overlay = false, U
 		return;
 	}
 
+	if (session.sessionLog) {
+		var chatSource = label ? sanitizeLabel(label) : (director ? "Director" : "Someone");
+		pushSessionLogEntry("chat", chatSource, msg);
+	}
+
 	data = {};
 	data.time = Date.now();
 
@@ -50331,6 +51259,10 @@ function updateClosedCaptions(msg, label, UUID) {
 	transcript = transcript.charAt(0).toUpperCase() + transcript.slice(1);
 	//transcript = transcript.substr(-1, 5000); // keep it from being too long
 
+	if (session.sessionLog && session.sessionLogTranscript && msg.isFinal) {
+		pushSessionLogEntry("transcript", label || "Unknown", transcript);
+	}
+
 	if (session.nocaptionlabels) {
 		label = "";
 	} else if (label && !(session.view && !session.view_set)) {
@@ -50430,6 +51362,7 @@ function updateMessages() {
 		chatBody.appendChild(msg);
 	}
 	showDownloadLinks();
+	showDrawingPermissionRequests();
 	for (var i in msgTransferList) {
 		var time = timeSince(msgTransferList[i].time) || "";
 		time = "<span style='user-select: none;'> - " + time + "</span>";
@@ -52091,6 +53024,9 @@ async function recordVideo(target, event = null, videoKbps = false) {
 		usePCM: (videoKbps === 0 || session.pcm) ? true : false,
 		audioOnly: (videoKbps !== false && videoKbps <= 0) ? true : false
 	};
+	if (configureRecording.audioOnly && configureRecording.bitrate < 0) {
+		configureRecording.bitrate = Math.abs(configureRecording.bitrate);
+	}
 
 	if (configureRecording.bitrate === false) {
 		if (defaultRecordingBitrate == false) {
@@ -52348,15 +53284,7 @@ async function recordVideo(target, event = null, videoKbps = false) {
 	}
 
 	var timestamp = Date.now();
-	var filename = "";
-	if (session.rpcs[UUID].label && session.rpcs[UUID].streamID) {
-		filename = session.rpcs[UUID].label || session.rpcs[UUID].streamID;
-	} else {
-		filename = session.rpcs[UUID].label + "_" + session.rpcs[UUID].streamID;
-	}
-
-	filename = filename.replace(/[\W]+/g, "_");
-	filename = filename.substring(0, 200);
+	var filename = buildRecordingFilenameBase(session.rpcs[UUID].label, session.rpcs[UUID].streamID);
 	filename += "_" + timestamp.toString();
 
 	var writer = writable.getWriter();
@@ -52599,6 +53527,107 @@ function updateLocalRecordButton(UUID, recorder) {
 	}
 }
 
+var sessionLogData = [];
+var sessionLogStartTime = 0;
+var sessionLogDownloaded = false;
+
+function pushSessionLogEntry(type, source, content) {
+	if (!session.sessionLog) { return; }
+	if (!sessionLogStartTime) {
+		sessionLogStartTime = Date.now();
+	}
+	var timeMs = Date.now() - sessionLogStartTime;
+	sessionLogData.push({
+		time: timeMs / 1000,
+		type: type,
+		source: source || "",
+		content: content || ""
+	});
+}
+
+function formatSessionLogTimecode(seconds) {
+	var h = Math.floor(seconds / 3600);
+	var m = Math.floor((seconds % 3600) / 60);
+	var s = seconds % 60;
+	var ms = Math.round((s - Math.floor(s)) * 1000);
+	s = Math.floor(s);
+	if (h > 0) {
+		return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") + "." + String(ms).padStart(3, "0");
+	}
+	return m + ":" + String(s).padStart(2, "0") + "." + String(ms).padStart(3, "0");
+}
+
+async function dropSessionMarker() {
+	var markerCount = 0;
+	for (var i = 0; i < sessionLogData.length; i++) {
+		if (sessionLogData[i].type === "marker") {
+			markerCount += 1;
+		}
+	}
+	var markerNum = markerCount + 1;
+	var defaultLabel = "Marker #" + markerNum;
+
+	// capture timestamp before the prompt
+	if (!sessionLogStartTime) {
+		sessionLogStartTime = Date.now();
+	}
+	var timeMs = Date.now() - sessionLogStartTime;
+
+	var note = await promptAlt("Session Marker #" + markerNum, false, false, false, false, false, false, {placeholder: "Type your note here..."});
+
+	var label = (note && note.trim()) ? note.trim() : defaultLabel;
+
+	sessionLogData.push({
+		time: timeMs / 1000,
+		type: "marker",
+		source: "",
+		content: label
+	});
+	log("Session marker dropped: " + label);
+
+	var btn = getById("sessionMarkerButton");
+	if (btn) {
+		btn.style.background = "rgba(255,100,100,0.6)";
+		btn.title = label + " dropped";
+		setTimeout(function () {
+			btn.style.background = "";
+		}, 500);
+	}
+}
+
+function downloadSessionLog() {
+	if (!session.sessionLog) { return; }
+	if (!sessionLogData.length) { return; }
+	if (sessionLogDownloaded) { return; }
+	sessionLogDownloaded = true;
+
+	var csv = "index,time_seconds,timecode,type,source,content\n";
+	for (var i = 0; i < sessionLogData.length; i++) {
+		var entry = sessionLogData[i];
+		var timecode = formatSessionLogTimecode(entry.time);
+		var content = (entry.content || "").replace(/"/g, '""');
+		var source = (entry.source || "").replace(/"/g, '""');
+		csv += (i + 1) + "," + entry.time.toFixed(3) + ',"' + timecode + '",' + entry.type + ',"' + source + '","' + content + '"\n';
+	}
+
+	var timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+	var filename = "vdo-ninja-session-log-" + (session.roomid || session.streamID || "local") + "-" + timestamp + ".csv";
+
+	try {
+		var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+		var url = URL.createObjectURL(blob);
+		var a = document.createElement("a");
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+	} catch (e) {
+		errorlog(e);
+	}
+}
+
 async function recordLocalVideoToggle(startonly = false) {
 	if (!session.videoElement) {
 		return;
@@ -52621,6 +53650,7 @@ async function recordLocalVideoToggle(startonly = false) {
 		ele.dataset.state = "1";
 		ele.style.backgroundColor = "red";
 		ele.innerHTML = '<i class="toggleSize las la-square" ></i>';
+		pushSessionLogEntry("recording", "", "Recording started");
 		if ("recording" in session.videoElement) {
 			errorlog("its already recording ??");
 		} else {
@@ -52638,6 +53668,7 @@ async function recordLocalVideoToggle(startonly = false) {
 		}
 		return true;
 	} else if (!startonly) {
+		pushSessionLogEntry("recording", "", "Recording stopped");
 		if ("recording" in session.videoElement) {
 			var res = await recordLocalVideo("stop");
 			log(res);
@@ -52943,6 +53974,25 @@ function PCM16(stream) {
 }
 //// END OF PCM 16 SAVING CODE
 
+function normalizeRecordingFilenamePart(value) {
+	if (value === false || value === true || value === null || typeof value === "undefined") {
+		return "";
+	}
+	value = value.toString().trim();
+	if (!value || value === "false" || value === "null" || value === "undefined") {
+		return "";
+	}
+	return value;
+}
+
+function buildRecordingFilenameBase(primary, secondary, fallback = "recording", maxLength = 200) {
+	var filename = normalizeRecordingFilenamePart(primary) || normalizeRecordingFilenamePart(secondary) || normalizeRecordingFilenamePart(fallback) || "recording";
+	maxLength = parseInt(maxLength) || 200;
+	filename = filename.replace(/[\W]+/g, "_").replace(/^_+|_+$/g, "");
+	filename = filename.substring(0, maxLength);
+	return filename || "recording";
+}
+
 async function recordLocalVideo(action = null, configureRecording = false, remote = false, altUUID = false) {
 	// event.currentTarget,this.parentNode.parentNode.dataset.UUID
 
@@ -53082,13 +54132,7 @@ async function recordLocalVideo(action = null, configureRecording = false, remot
 	log(configureRecording);
 
 	var timestamp = Date.now();
-	var filename = "";
-	if (session.label || session.streamID) {
-		filename = session.label || session.streamID;
-		filename = filename.replace(/[\W]+/g, "_");
-		filename = filename.substring(0, 200);
-	}
-
+	var filename = buildRecordingFilenameBase(session.label, session.streamID);
 	filename += "_" + timestamp.toString();
 	log("filename: " + filename);
 
@@ -54238,6 +55282,371 @@ function sendFrameHandler(tracks, UUID = null) {
 	});
 }
 
+function shouldApplyIncomingViewChroma(UUID) {
+	if (!session || !session.viewChroma || session.director || !session.rpcs || !session.rpcs[UUID]) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	if (!rpc.videoElement || !rpc.streamSrc || rpc.videoMuted || rpc.virtualHangup || rpc.bandwidthMuted || rpc.directorVideoMuted) {
+		return false;
+	}
+	try {
+		return !!rpc.streamSrc.getVideoTracks().length;
+	} catch (e) {
+		return false;
+	}
+}
+
+function createIncomingViewChromaCanvas(UUID) {
+	if (!session.rpcs[UUID]) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	if (rpc.viewChromaCanvas && rpc.viewChromaCanvasCtx) {
+		return rpc.viewChromaCanvas;
+	}
+
+	var canvas = document.createElement("canvas");
+	canvas.id = "viewchroma_" + UUID;
+	canvas.className = "tile";
+	canvas.style.pointerEvents = "auto";
+	canvas.style.backgroundColor = "transparent";
+	canvas.dataset.UUID = UUID;
+	if (rpc.streamID) {
+		canvas.dataset.sid = rpc.streamID;
+	}
+	canvas.dataset.menu = "context-menu-video";
+	if (!session.cleanOutput) {
+		canvas.classList.add("task");
+	}
+	canvas.addEventListener("click", function (e) {
+		try {
+			var uid = e.currentTarget.dataset.UUID;
+			if (e.ctrlKey || e.metaKey) {
+				e.preventDefault();
+				if (session.statsMenu !== false && session.rpcs[uid] && "stats" in session.rpcs[uid]) {
+					var [menu, innerMenu] = statsMenuCreator();
+					printViewStats(innerMenu, uid);
+					menu.interval = setInterval(printViewStats, session.statsInterval, innerMenu, uid);
+				}
+				e.stopPropagation();
+				return false;
+			} else if (session.rpcs[uid] && "prePausedBandwidth" in session.rpcs[uid]) {
+				unPauseVideo(session.rpcs[uid].videoElement);
+			}
+		} catch (err) {
+			errorlog(err);
+		}
+	});
+
+	rpc.viewChromaCanvas = canvas;
+	rpc.viewChromaCanvasCtx = canvas.getContext("2d", { alpha: true, willReadFrequently: true });
+	return rpc.viewChromaCanvas;
+}
+
+function hideIncomingViewChromaSourceVideo(UUID) {
+	if (!session.rpcs || !session.rpcs[UUID] || !session.rpcs[UUID].videoElement) {
+		return;
+	}
+	if (!session.viewChromaHideSource) {
+		restoreIncomingViewChromaSourceVideo(UUID);
+		return;
+	}
+	var video = session.rpcs[UUID].videoElement;
+	// The mixer uses inline opacity==="0" as a "skip this element" sentinel and
+	// unconditionally writes visibility="visible" on every pass. Touching those
+	// inline styles either drops the container from the DOM (taking the canvas
+	// with it) or gets clobbered on the next mixer tick. A class with !important
+	// survives both. pointer-events stays on the class too so clicks reach the canvas.
+	video.classList.add("viewchroma-source-hidden");
+	video.dataset.viewChromaSourceHidden = "true";
+}
+
+function restoreIncomingViewChromaSourceVideo(UUID) {
+	if (!session.rpcs || !session.rpcs[UUID] || !session.rpcs[UUID].videoElement) {
+		return;
+	}
+	var video = session.rpcs[UUID].videoElement;
+	video.classList.remove("viewchroma-source-hidden");
+	delete video.dataset.viewChromaSourceHidden;
+	if (video.viewChromaSourceStyle) {
+		// Legacy inline-hide fallback: restore anything a prior build wrote onto style.
+		var style = video.viewChromaSourceStyle;
+		video.style.display = style.display || "";
+		video.style.visibility = style.visibility || "";
+		video.style.position = style.position || "";
+		video.style.inset = style.inset || "";
+		video.style.left = style.left || "";
+		video.style.top = style.top || "";
+		video.style.width = style.width || "";
+		video.style.height = style.height || "";
+		video.style.opacity = style.opacity || "";
+		video.style.pointerEvents = style.pointerEvents || "";
+		video.style.zIndex = style.zIndex || "";
+		video.viewChromaSourceStyle = null;
+	}
+}
+
+function mountIncomingViewChromaCanvas(UUID) {
+	if (!session.rpcs || !session.rpcs[UUID] || !session.rpcs[UUID].viewChromaCanvas || !session.rpcs[UUID].videoElement) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	var canvas = rpc.viewChromaCanvas;
+	var video = rpc.videoElement;
+	var container = video.container || canvas.container || null;
+	var holder = video.holder || canvas.holder || (container && container.holder) || null;
+	if (!holder) {
+		return false;
+	}
+	if (canvas.parentNode !== holder) {
+		holder.appendChild(canvas);
+	}
+	canvas.container = container;
+	canvas.holder = holder;
+	canvas.style.position = "absolute";
+	canvas.style.left = "0";
+	canvas.style.top = "0";
+	canvas.style.width = "100%";
+	canvas.style.height = "100%";
+	canvas.style.maxWidth = "100%";
+	canvas.style.maxHeight = "100%";
+	canvas.style.objectFit = video.style.objectFit || "contain";
+	canvas.style.zIndex = "1";
+	return true;
+}
+
+function syncIncomingViewChromaCanvas(UUID) {
+	if (!session.rpcs[UUID] || !session.rpcs[UUID].viewChromaCanvas || !session.rpcs[UUID].videoElement) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	var canvas = rpc.viewChromaCanvas;
+	var video = rpc.videoElement;
+	var sourceStyle = video.viewChromaSourceStyle || false;
+
+	canvas.id = "viewchroma_" + (video.id || UUID);
+	canvas.dataset.UUID = video.dataset.UUID || UUID;
+	if (video.dataset.sid || rpc.streamID) {
+		canvas.dataset.sid = video.dataset.sid || rpc.streamID;
+	}
+	if (video.dataset.aspectRatio) {
+		canvas.dataset.aspectRatio = video.dataset.aspectRatio;
+	} else if ("aspectRatio" in canvas.dataset) {
+		delete canvas.dataset.aspectRatio;
+	}
+	if (video.dataset.rotated) {
+		canvas.dataset.rotated = video.dataset.rotated;
+	} else if ("rotated" in canvas.dataset) {
+		delete canvas.dataset.rotated;
+	}
+	canvas.style.display = sourceStyle ? sourceStyle.display || video.style.display || "" : video.style.display || "";
+	canvas.style.visibility = sourceStyle ? sourceStyle.visibility || "" : video.style.visibility || "";
+	canvas.style.opacity = sourceStyle ? sourceStyle.opacity || "" : video.style.opacity || "";
+	canvas.style.transform = video.style.transform || "";
+	canvas.style.filter = video.style.filter || "";
+	canvas.style.pointerEvents = sourceStyle ? sourceStyle.pointerEvents || "auto" : video.style.pointerEvents || "auto";
+	canvas.order = typeof video.order === "number" ? video.order : 0;
+	canvas.title = video.title || "";
+	canvas.container = video.container || video.parentNode || null;
+	canvas.holder = video.holder || null;
+	canvas.proxyVideoElement = video;
+	canvas.srcObject = video.srcObject || null;
+	canvas.videoWidth = video.videoWidth || canvas.width || 0;
+	canvas.videoHeight = video.videoHeight || canvas.height || 0;
+	canvas.controls = !!video.controls;
+	mountIncomingViewChromaCanvas(UUID);
+	if (!canvas.clearDrawOnVideo && video.clearDrawOnVideo) {
+		canvas.clearDrawOnVideo = video.clearDrawOnVideo;
+	}
+
+	if (video.classList.contains("task")) {
+		canvas.classList.add("task");
+	} else {
+		canvas.classList.remove("task");
+	}
+	if (video.classList.contains("fadein")) {
+		canvas.classList.add("fadein");
+	} else {
+		canvas.classList.remove("fadein");
+	}
+	return true;
+}
+
+function processIncomingViewChromaFrame(UUID) {
+	if (!session.rpcs[UUID] || !session.rpcs[UUID].viewChromaState || !session.rpcs[UUID].videoElement) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	var state = rpc.viewChromaState;
+	var video = rpc.videoElement;
+	if (!video.container || !video.container.holder || !document.body.contains(video.container.holder)) {
+		return false;
+	}
+	if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+		return false;
+	}
+	var firstFrame = !state.hasFrame;
+
+	var canvas = createIncomingViewChromaCanvas(UUID);
+	var ctx = rpc.viewChromaCanvasCtx;
+	if (!canvas || !ctx) {
+		return false;
+	}
+	if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+		canvas.width = video.videoWidth;
+		canvas.height = video.videoHeight;
+	}
+
+	try {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+		var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+		applyColorKeyToImageData(imageData, state.config);
+		ctx.putImageData(imageData, 0, 0);
+	} catch (e) {
+		errorlog(e);
+		stopIncomingViewChroma(UUID, true);
+		return false;
+	}
+	state.hasFrame = true;
+	if (firstFrame && state.timer) {
+		clearTimeout(state.timer);
+		state.timer = null;
+	}
+	syncIncomingViewChromaCanvas(UUID);
+	if (mountIncomingViewChromaCanvas(UUID)) {
+		hideIncomingViewChromaSourceVideo(UUID);
+	}
+	return true;
+}
+
+function scheduleIncomingViewChroma(UUID) {
+	if (!session.rpcs[UUID] || !session.rpcs[UUID].viewChromaState || session.rpcs[UUID].viewChromaState.stopped) {
+		return;
+	}
+	var rpc = session.rpcs[UUID];
+	var state = rpc.viewChromaState;
+	var video = rpc.videoElement;
+	if (!video) {
+		return;
+	}
+
+	if (typeof video.requestVideoFrameCallback === "function") {
+		if (state.videoFrameHandle !== null && state.videoFrameHandle !== undefined) {
+			return;
+		}
+		state.videoFrameHandle = video.requestVideoFrameCallback(function () {
+			state.videoFrameHandle = null;
+			if (!session.rpcs[UUID] || !session.rpcs[UUID].viewChromaState || session.rpcs[UUID].viewChromaState.stopped) {
+				return;
+			}
+			processIncomingViewChromaFrame(UUID);
+			scheduleIncomingViewChroma(UUID);
+		});
+	}
+
+	if (state.timer || (typeof video.requestVideoFrameCallback === "function" && state.hasFrame)) {
+		return;
+	}
+
+	state.timer = setTimeout(function () {
+		state.timer = null;
+		if (!session.rpcs[UUID] || !session.rpcs[UUID].viewChromaState || session.rpcs[UUID].viewChromaState.stopped) {
+			return;
+		}
+		if (!processIncomingViewChromaFrame(UUID)) {
+			scheduleIncomingViewChroma(UUID);
+			return;
+		}
+		scheduleIncomingViewChroma(UUID);
+	}, 50);
+}
+
+function stopIncomingViewChroma(UUID, removeCanvas = true) {
+	if (!session.rpcs || !session.rpcs[UUID]) {
+		return;
+	}
+	var rpc = session.rpcs[UUID];
+	var state = rpc.viewChromaState;
+	if (state) {
+		state.stopped = true;
+		if (state.timer) {
+			clearTimeout(state.timer);
+			state.timer = null;
+		}
+		if (
+			rpc.videoElement &&
+			typeof rpc.videoElement.cancelVideoFrameCallback === "function" &&
+			state.videoFrameHandle !== null &&
+			state.videoFrameHandle !== undefined
+		) {
+			try {
+				rpc.videoElement.cancelVideoFrameCallback(state.videoFrameHandle);
+			} catch (e) {}
+		}
+	}
+	if (removeCanvas && rpc.viewChromaCanvas) {
+		try {
+			rpc.viewChromaCanvas.remove();
+		} catch (e) {}
+		rpc.viewChromaCanvas = null;
+		rpc.viewChromaCanvasCtx = null;
+		rpc.viewChromaState = null;
+		restoreIncomingViewChromaSourceVideo(UUID);
+	} else if (rpc.viewChromaCanvas) {
+		rpc.viewChromaCanvas.style.display = "none";
+	}
+}
+
+function configureIncomingViewChroma(UUID) {
+	if (!shouldApplyIncomingViewChroma(UUID)) {
+		stopIncomingViewChroma(UUID, true);
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	var config = getIncomingViewChromaConfig();
+	if (!config) {
+		stopIncomingViewChroma(UUID, true);
+		return false;
+	}
+
+	if (!rpc.viewChromaState || rpc.viewChromaState.config.cacheKey !== config.cacheKey) {
+		stopIncomingViewChroma(UUID, false);
+		rpc.viewChromaState = {
+			config: config,
+			hasFrame: false,
+			stopped: false,
+			videoFrameHandle: null,
+			timer: null
+		};
+	} else {
+		rpc.viewChromaState.config = config;
+		rpc.viewChromaState.stopped = false;
+	}
+	scheduleIncomingViewChroma(UUID);
+	return true;
+}
+
+function getRenderedRemoteElement(UUID) {
+	if (!session.rpcs || !session.rpcs[UUID]) {
+		return false;
+	}
+	var rpc = session.rpcs[UUID];
+	if (!session.director && rpc.viewChromaCanvas && rpc.viewChromaState && rpc.viewChromaState.hasFrame) {
+		syncIncomingViewChromaCanvas(UUID);
+		return rpc.viewChromaCanvas;
+	}
+	return rpc.videoElement || false;
+}
+
+function resolveMediaContextElement(mediaElement) {
+	if (mediaElement && mediaElement.proxyVideoElement) {
+		return mediaElement.proxyVideoElement;
+	}
+	return mediaElement;
+}
+
 function updateIncomingVideoElement(UUID, video = true, audio = true) {
 	if (!session.rpcs[UUID].videoElement) {
 		return;
@@ -54706,6 +56115,8 @@ function addAudioPipeline(UUID, track) {
 }
 
 function processMiniInfoUpdate(miniInfo, UUID) {
+	var roomOnlyTierChanged = false;
+
 	if ("qlr" in miniInfo) {
 		session.rpcs[UUID].stats.info.quality_limitation_reason = miniInfo.qlr;
 	}
@@ -54746,6 +56157,19 @@ function processMiniInfoUpdate(miniInfo, UUID) {
 			session.rpcs[UUID].connectionDetails.innerText = "🔗" + session.rpcs[UUID].stats.info.total_outbound_p2p_connections;
 			session.rpcs[UUID].connectionDetails.dataset.value = session.rpcs[UUID].stats.info.total_outbound_p2p_connections;
 		}
+	}
+
+	if ("rot" in miniInfo) {
+		var roomOnlyTier = parseInt(miniInfo.rot) || 0;
+		if (session.rpcs[UUID].roomOnlyTier !== roomOnlyTier) {
+			roomOnlyTierChanged = true;
+		}
+		session.rpcs[UUID].roomOnlyTier = roomOnlyTier;
+		session.rpcs[UUID].stats.info.room_only_tier = roomOnlyTier;
+	}
+
+	if (roomOnlyTierChanged) {
+		updateMixer();
 	}
 
 	if (session.rpcs[UUID].batteryMeter) {
@@ -55932,10 +57356,18 @@ function audioMeterGuest(mediaStreamSource, UUID, trackid) {
 	return session.rpcs[UUID].inboundAudioPipeline[trackid].analyser;
 }
 
-function effectsDynamicallyUpdate(event, ele) {
+async function effectsDynamicallyUpdate(event, ele) {
 	log("effectsDynamicallyUpdate");
 	let lastEffectValue = session.effect;
 	session.effect = ele.options[ele.selectedIndex].value;
+
+	// Restore saved effect value for this session context if available
+	try {
+		var savedVal = await getSavedEffectValue(session.effect);
+		if (savedVal !== null) {
+			session.effectValue_default = savedVal;
+		}
+	} catch(e) {}
 
 	getById("selectImageContent").style.display = "none";
 	getById("selectImageContent3").style.display = "none";
@@ -56627,12 +58059,78 @@ async function changeEffectsImage(ev, ele) {
 	}
 }
 
+async function getEffectStorageKey() {
+	var key = "vdo_effect_value_";
+	if (session.roomid) {
+		key += session.roomid;
+		if (session.password && session.password !== session.defaultPassword) {
+			try {
+				var hash = await generateHash(session.password + session.salt, 4);
+				if (hash) {
+					key += "_" + hash;
+				}
+			} catch (e) {
+				errorlog(e);
+			}
+		}
+	} else if (session.streamID) {
+		key += session.streamID;
+		if (session.password && session.password !== session.defaultPassword) {
+			try {
+				var hash2 = await generateHash(session.password + session.salt, 4);
+				if (hash2) {
+					key += "_" + hash2;
+				}
+			} catch (e) {
+				errorlog(e);
+			}
+		}
+	} else {
+		return null;
+	}
+	return key;
+}
+
+async function saveEffectValue(effect, value) {
+	var storageKey = await getEffectStorageKey();
+	if (!storageKey) return;
+	try {
+		var saved = {};
+		var raw = localStorage.getItem(storageKey);
+		if (raw) {
+			saved = JSON.parse(raw);
+		}
+		saved[effect] = parseFloat(value);
+		localStorage.setItem(storageKey, JSON.stringify(saved));
+	} catch (e) {
+		errorlog(e);
+	}
+}
+
+async function getSavedEffectValue(effect) {
+	var storageKey = await getEffectStorageKey();
+	if (!storageKey) return null;
+	try {
+		var raw = localStorage.getItem(storageKey);
+		if (raw) {
+			var saved = JSON.parse(raw);
+			if (effect in saved) {
+				return saved[effect];
+			}
+		}
+	} catch (e) {
+		errorlog(e);
+	}
+	return null;
+}
+
 async function changeEffectAmount(ev, ele) {
 	session.effectValue = ele.value;
 	if (ele.id === "selectEffectAmountInput") {
 		getById("selectEffectAmountInput3").value = ele.value;
 	}
 	log("session.effectValue: " + session.effectValue);
+	saveEffectValue(session.effect, ele.value);
 }
 async function loadTFLiteModel() {
 	try {
@@ -58899,8 +60397,33 @@ function whipClient() {
 				var data = JSON.parse(event.data);
 
 				if ("sdp" in data) {
+					// Build a trickle callback if the OBS publisher supports reverse trickle ICE.
+					// This lets us send the answer immediately and trickle candidates afterward,
+					// cutting the POST round-trip from ~2s down to ~50ms.
+					var sendTrickle = null;
+					if (data.tricklePatchSupported) {
+						var trickleStreamID = data.streamID;
+						sendTrickle = function(candidate) {
+							if (candidate === null) {
+								try { socket.send(JSON.stringify({ type: "end-of-candidates", streamID: trickleStreamID })); } catch(e) {}
+							} else {
+								try {
+									socket.send(JSON.stringify({
+										type: "candidate",
+										candidate: {
+											candidate: candidate.candidate,
+											sdpMid: candidate.sdpMid,
+											sdpMLineIndex: candidate.sdpMLineIndex,
+											usernameFragment: candidate.usernameFragment
+										},
+										streamID: trickleStreamID
+									}));
+								} catch(e) {}
+							}
+						};
+					}
 					try {
-						var resp = await processWhipIn(data);
+						var resp = await processWhipIn(data, sendTrickle);
 					} catch (e) {
 						var resp = e && (e.message || e.toString());
 					}
@@ -58943,7 +60466,7 @@ function whipClient() {
 	}
 	connect();
 }
-async function processWhipIn(data) {
+async function processWhipIn(data, sendTrickle) {
 	// LISTEN FOR REMOTE WHIP (from OBS?)
 	var msg = {};
 	msg.description = {};
@@ -59030,19 +60553,49 @@ async function processWhipIn(data) {
 			UUID
 		);
 
-	var iceBundle = await promise2; // waiting for ICE GATHER COMPLETE; default 2 second. change with &whipwait=2000
-
-	clearTimeout(session.rpcs[UUID].iceTimer);
-	session.rpcs[UUID].iceTimer = null;
-	session.rpcs[UUID].whipCallback2 = null;
-
-	log("ICE BUNDLE DONE");
-	log(iceBundle);
-
+	if (data.tricklePatchSupported && sendTrickle) {
+		// Trickle path: return the answer immediately without waiting for ICE gathering.
+		// Candidates will be trickled back via the WebSocket as they arrive.
 		await promise;
 		session.rpcs[UUID].whipCallback = null;
 
-		let sdpAnswer = session.rpcs[UUID].localDescription.sdp;
+		// Null out whipCallback2 so the ICE gather timer becomes a no-op
+		session.rpcs[UUID].whipCallback2 = null;
+
+		// Override onicecandidate to forward candidates directly via the WebSocket
+		session.rpcs[UUID].onicecandidate = function(event) {
+			if (!event.candidate) {
+				sendTrickle(null); // end-of-candidates
+				return;
+			}
+			try {
+				if (session.icefilter && event.candidate.candidate.indexOf(session.icefilter) === -1) return;
+				if (session.localNetworkOnly && !filterIceLAN(event.candidate)) return;
+				if (session.stunOnly && !filterStunOnly(event.candidate)) return;
+			} catch(e) {}
+			sendTrickle(event.candidate);
+		};
+
+		// Drain any candidates already gathered before we installed the trickle handler
+		var earlyBundle = [...(session.rpcs[UUID].iceBundle || [])];
+		session.rpcs[UUID].iceBundle = [];
+		earlyBundle.forEach(function(c) { sendTrickle(c); });
+	} else {
+		// Normal blocking path: wait for ICE gathering to complete (or timeout) before answering
+		var iceBundle = await promise2; // waiting for ICE GATHER COMPLETE; default 2 second. change with &whipwait=2000
+
+		clearTimeout(session.rpcs[UUID].iceTimer);
+		session.rpcs[UUID].iceTimer = null;
+		session.rpcs[UUID].whipCallback2 = null;
+
+		log("ICE BUNDLE DONE");
+		log(iceBundle);
+
+		await promise;
+		session.rpcs[UUID].whipCallback = null;
+	}
+
+	let sdpAnswer = session.rpcs[UUID].localDescription.sdp;
 
 	try {
 		// Extract MSIDs from offer to reflect in answer (helps mapping)
@@ -59579,6 +61132,7 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 	var eTag = false;
 	var icePwd = false;
 	var iceUfrag = false;
+	var tricklePatchDisabledReason = false;
 	// var reconnect = null;
 	//var maxRetries = 5;
 	//var delay = 2000;
@@ -59615,6 +61169,171 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 				.split(",")
 				.map(item => item.trim().toLowerCase().split(";")[0].trim())
 				.includes("application/trickle-ice-sdpfrag");
+		}
+
+		function disableWhepPatchTrickle(reason) {
+			if (tricklePatchDisabledReason === reason) {
+				return;
+			}
+
+			tricklePatchDisabledReason = reason || "disabled";
+			candidates = [];
+
+			if (reason === "missing-etag") {
+				warnlog("WHEP endpoint omitted ETag for this session; disabling trickle ICE PATCH fallback.");
+			} else if (reason === "etag-mismatch") {
+				warnlog("WHEP endpoint rejected the PATCH ETag; disabling trickle ICE for this session.");
+			} else if (reason === "precondition-required") {
+				warnlog("WHEP endpoint requires conditional PATCH requests; disabling trickle ICE for this session.");
+			}
+		}
+
+		function canTrickleViaPatch() {
+			if (tricklePatchDisabledReason) {
+				return false;
+			}
+			if (!supportsTrickleIcePatch(acceptPatch)) {
+				return false;
+			}
+			return !!(eTag && icePwd && iceUfrag);
+		}
+
+		function normalizeCandidateLineForPatch(candidate) {
+			if (!candidate || !candidate.candidate) {
+				return false;
+			}
+
+			if (candidate.candidate.startsWith("a=")) {
+				return candidate.candidate;
+			}
+
+			return "a=" + candidate.candidate;
+		}
+
+		function extractTrickleSectionMetadata(referenceSdp) {
+			const lines = (referenceSdp || "").split(/\r\n|\n/);
+			const mediaSections = [];
+			let bundleMids = [];
+			let currentSection = null;
+
+			lines.forEach(line => {
+				if (!line) {
+					return;
+				}
+
+				if (line.startsWith("a=group:BUNDLE")) {
+					bundleMids = line.substring("a=group:BUNDLE".length).trim().split(/\s+/).filter(Boolean);
+					return;
+				}
+
+				if (line.startsWith("m=")) {
+					currentSection = {
+						index: mediaSections.length,
+						mLine: line,
+						mid: null
+					};
+					mediaSections.push(currentSection);
+					return;
+				}
+
+				if (currentSection && line.startsWith("a=mid:")) {
+					currentSection.mid = line.substring("a=mid:".length).trim();
+				}
+			});
+
+			const byMid = {};
+			mediaSections.forEach(section => {
+				if (section.mid !== null) {
+					byMid[section.mid] = section;
+				}
+			});
+
+			if (!bundleMids.length) {
+				bundleMids = mediaSections.map(section => section.mid).filter(Boolean);
+			}
+
+			return {
+				bundleMids: bundleMids,
+				mediaSections: mediaSections,
+				byMid: byMid,
+				firstMediaSection: mediaSections[0] || null
+			};
+		}
+
+		function buildTrickleIcePatchFragment(candidateList, includeEndOfCandidates = true) {
+			let referenceSdp = "";
+			try {
+				if (session.rpcs[UUID] && session.rpcs[UUID].whep && session.rpcs[UUID].whep.localDescription) {
+					referenceSdp = session.rpcs[UUID].whep.localDescription.sdp || "";
+				}
+			} catch (e) {}
+
+			const sdpMeta = extractTrickleSectionMetadata(referenceSdp);
+			if (!sdpMeta.firstMediaSection) {
+				return "";
+			}
+
+			const sections = new Map();
+			(candidateList || []).forEach(candidate => {
+				const candidateLine = normalizeCandidateLineForPatch(candidate);
+				if (!candidateLine) {
+					return;
+				}
+
+				let section = null;
+				if (candidate.sdpMid !== null && typeof candidate.sdpMid !== "undefined" && `${candidate.sdpMid}` in sdpMeta.byMid) {
+					section = sdpMeta.byMid[`${candidate.sdpMid}`];
+				} else if (
+					candidate.sdpMLineIndex !== null &&
+					typeof candidate.sdpMLineIndex !== "undefined" &&
+					sdpMeta.mediaSections[candidate.sdpMLineIndex]
+				) {
+					section = sdpMeta.mediaSections[candidate.sdpMLineIndex];
+				} else {
+					section = sdpMeta.firstMediaSection;
+				}
+
+				const key = `${section.index}:${section.mid !== null ? section.mid : ""}`;
+				if (!sections.has(key)) {
+					sections.set(key, {
+						section: section,
+						candidates: []
+					});
+				}
+				sections.get(key).candidates.push(candidateLine);
+			});
+
+			if (!sections.size && includeEndOfCandidates) {
+				const section = sdpMeta.firstMediaSection;
+				sections.set(`${section.index}:${section.mid !== null ? section.mid : ""}`, {
+					section: section,
+					candidates: []
+				});
+			}
+
+			const lines = [];
+			if (sdpMeta.bundleMids.length) {
+				lines.push("a=group:BUNDLE " + sdpMeta.bundleMids.join(" "));
+			}
+
+			Array.from(sections.values())
+				.sort((left, right) => left.section.index - right.section.index)
+				.forEach((entry, index, values) => {
+					lines.push(entry.section.mLine);
+					if (entry.section.mid !== null && typeof entry.section.mid !== "undefined") {
+						lines.push("a=mid:" + entry.section.mid);
+					}
+					lines.push("a=ice-ufrag:" + iceUfrag);
+					lines.push("a=ice-pwd:" + icePwd);
+					entry.candidates.forEach(candidateLine => {
+						lines.push(candidateLine);
+					});
+					if (includeEndOfCandidates && index === values.length - 1) {
+						lines.push("a=end-of-candidates");
+					}
+				});
+
+			return lines.length ? lines.join("\r\n") + "\r\n" : "";
 		}
 
 	function getWhepAudioRecoveryState(targetUUID) {
@@ -60356,7 +62075,7 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 					session.rpcs[UUID].whep.iceCompletedCallback();
 				}
 				return;
-				} else if (eTag && icePwd && iceUfrag && supportsTrickleIcePatch(acceptPatch) && event.candidate && responseLocation && !session.rpcs[UUID].whep.iceCompletedCallback) {
+				} else if (canTrickleViaPatch() && event.candidate && !session.rpcs[UUID].whep.iceCompletedCallback) {
 				// "left over" candidates not sent with the SDP offer
 				log("Send patch request with ice candidate");
 
@@ -60376,32 +62095,10 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 				}
 
 				if (event.candidate.candidate) {
-					let patchCandidate =
-						"a=ice-ufrag:" +
-						iceUfrag +
-						"\r\n" + // <== what a mess..  https://datatracker.ietf.org/doc/html/draft-murillo-whep
-						"a=ice-pwd:" +
-						icePwd +
-						"\r\n" +
-						"m=audio 9 RTP/AVP 0\r\n" +
-						"a=mid:0\r\n" +
-						"a=" +
-						event.candidate.candidate +
-						"\r\n" +
-						"a=end-of-candidates\r\n";
-
-					// a=ice-ufrag:EsAw
-					// a=ice-pwd:P2uYro0UCOQ4zxjKXaWCBui1
-					// m=audio RTP/AVP 0
-					// a=mid:0
-					// a=candidate:1387637174 1 udp 2122260223 192.0.2.1 61764 typ host generation 0 ufrag EsAw network-id 1
-					// a=candidate:3471623853 1 udp 2122194687 198.51.100.1 61765 typ host generation 0 ufrag EsAw network-id 2
-					// a=candidate:473322822 1 tcp 1518280447 192.0.2.1 9 typ host tcptype active generation 0 ufrag EsAw network-id 1
-					// a=candidate:2154773085 1 tcp 1518214911 198.51.100.2 9 typ host tcptype active generation 0 ufrag EsAw network-id 2
-					// a=end-of-candidates
-
-					// If-Match: "38sdf4fdsf54:EsAw"
-					ajax(patchCandidate, "trickle-ice-sdpfrag", false, { "if-match": eTag });
+					const patchCandidate = buildTrickleIcePatchFragment([event.candidate], true);
+					if (patchCandidate) {
+						ajax(patchCandidate, "trickle-ice-sdpfrag", false, { "if-match": eTag });
+					}
 				}
 			} else {
 				try {
@@ -60521,6 +62218,7 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 			}
 
 			try {
+				stopIncomingViewChroma(UUID, true);
 				if (session.rpcs[UUID].videoElement) {
 					session.rpcs[UUID].videoElement.remove();
 					session.rpcs[UUID].videoElement = null;
@@ -60653,6 +62351,9 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 							if (responseHeadersLower.indexOf("etag") >= 0) {
 								eTag = this.getResponseHeader("etag");
 							}
+							if (supportsTrickleIcePatch(acceptPatch) && !eTag) {
+								disableWhepPatchTrickle("missing-etag");
+							}
 						if (responseLocation && !(responseLocation.startsWith("http://") || responseLocation.startsWith("https://"))) {
 							let requestURL = new URL(whepInput); // Replace 'yourRequestURL' with the URL you posted to.
 							let protocol = requestURL.protocol;
@@ -60689,30 +62390,23 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 								.catch(function (e) {
 									log(e);
 									requestingStream = false;
-								});
+							});
 							// the request is done, but lets handle any old ice candidates
-								if (eTag && icePwd && iceUfrag && supportsTrickleIcePatch(acceptPatch) && candidates.length && responseLocation && !session.rpcs[UUID].whep.iceCompletedCallback) {
+								if (canTrickleViaPatch() && candidates.length && !session.rpcs[UUID].whep.iceCompletedCallback) {
 								// "left over" candidates not sent with the SDP offer
 								log("Send patch request with ice candidates");
-								let patchCandidates =
-									"a=ice-ufrag:" +
-									iceUfrag +
-									"\r\n" + // <== what a mess..  https://datatracker.ietf.org/doc/html/draft-murillo-whep
-									"a=ice-pwd:" +
-									icePwd +
-									"\r\n" +
-									"m=audio 9 RTP/AVP 0\r\n" + // if I leave out the port (9), then MediaMTX breaks, but this is not in the draft spec as linked above
-									"a=mid:0\r\n";
-								candidates.forEach(candidate => {
-									patchCandidates += "a=" + candidate.candidate + "\r\n";
-								});
+								let patchCandidates = buildTrickleIcePatchFragment(candidates, true);
 								candidates = [];
-								patchCandidates += "a=end-of-candidates\r\n";
-								//
-								// If-Match: "38sdf4fdsf54:EsAw"
-								ajax(patchCandidates, "trickle-ice-sdpfrag", false, { "if-match": eTag });
+								if (patchCandidates) {
+									ajax(patchCandidates, "trickle-ice-sdpfrag", false, { "if-match": eTag });
+								}
 							} else {
-								warnlog("Trickling candidates via PATCH requests not supported it seems");
+								candidates = [];
+								if (!tricklePatchDisabledReason && supportsTrickleIcePatch(acceptPatch) && !eTag) {
+									disableWhepPatchTrickle("missing-etag");
+								} else if (!tricklePatchDisabledReason && supportsTrickleIcePatch(acceptPatch)) {
+									warnlog("Trickling candidates via PATCH requests not supported it seems");
+								}
 							}
 						} else if (contentType == "application/error") {
 							if (!session.cleanOutput) {
@@ -60727,6 +62421,10 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 				} else if (this.readyState == 4 && this.status == 204) {
 					requestingStream = false;
 					if (type == "trickle-ice-sdpfrag") {
+						let responseEtag = this.getResponseHeader("etag");
+						if (responseEtag) {
+							eTag = responseEtag;
+						}
 						// patch candidate request accepted?
 					} else {
 						// not in spec?
@@ -60740,6 +62438,9 @@ async function whepIn(whepInput = false, whepInputToken = false, UUID = false) {
 					} else if (this.status == 501) {
 					} else if (this.status == 412) {
 						// etag trickle did not match
+						disableWhepPatchTrickle("etag-mismatch");
+					} else if (this.status == 428) {
+						disableWhepPatchTrickle("precondition-required");
 					}
 					if (!this.status || this.status >= 400) {
 						if (type === "sdp") {
@@ -61525,6 +63226,36 @@ async function targetGuest(target, action, value = null, value2 = null) {
 			element.value = 1;
 			return directTimer(element);
 		}
+	} else if (action == "refreshVideo" || action == "refreshCamera") {
+		var uuid = resolveTargetGuestUUID(target);
+		if (!uuid) {
+			return false;
+		}
+		var refreshVideoData = {};
+		refreshVideoData.refreshVideo = true;
+		refreshVideoData.UUID = uuid;
+		refreshVideoData.remote = session.remote;
+		return !!session.sendRequest(refreshVideoData, uuid);
+	} else if (action == "refreshConnection" || action == "restartConnection") {
+		var uuid = resolveTargetGuestUUID(target);
+		if (!uuid) {
+			return false;
+		}
+		var refreshConnectionData = {};
+		refreshConnectionData.refreshConnection = true;
+		refreshConnectionData.UUID = uuid;
+		refreshConnectionData.remote = session.remote;
+		return !!session.sendRequest(refreshConnectionData, uuid);
+	} else if (action == "refreshAll" || action == "recoverStream") {
+		var uuid = resolveTargetGuestUUID(target);
+		if (!uuid) {
+			return false;
+		}
+		var refreshAllData = {};
+		refreshAllData.refreshAll = true;
+		refreshAllData.UUID = uuid;
+		refreshAllData.remote = session.remote;
+		return !!session.sendRequest(refreshAllData, uuid);
 	} else if (action == "ptzZoom" || action == "remoteZoom") {
 		var uuid = resolveTargetGuestUUID(target);
 		if (!uuid) {
@@ -62175,6 +63906,7 @@ function setupCommands() {
 
 		if (!value2) {
 			session.buffer = delay;
+			return true;
 		} else if (value2 === "*") {
 			for (var uuid in session.rpcs) {
 				session.rpcs[uuid].buffer = delay;
@@ -62182,8 +63914,8 @@ function setupCommands() {
 				document.querySelectorAll('#bufferSettings[data--u-u-i-d="' + uuid + '"] input[data-buffer-value]').forEach(ele => {
 					ele.value = delay;
 				});
-				return true;
 			}
+			return true;
 		} else if (value2 in session.rpcs) {
 			session.rpcs[value2].buffer = delay;
 			playoutdelay(value2);
@@ -62459,6 +64191,11 @@ async function processMessage(data) {
 		if ("target" in data && data.target !== "null" && data.target !== null) {
 			if ("action" in data) {
 				if ("value" in data && data.value !== "null" && data.value !== null) {
+					if (data.value == "true") {
+						data.value = true;
+					} else if (data.value == "false") {
+						data.value = false;
+					}
 					return await targetGuest(data.target, data.action, data.value, data.value2 || null);
 				} else {
 					return await targetGuest(data.target, data.action, null);
@@ -64021,6 +65758,7 @@ async function createSecondStream2(UUID) {
 		session.pcs[UUID + "_screen"].allowVideo = session.pcs[UUID].allowScreenVideo;
 		session.pcs[UUID + "_screen"].allowAudio = session.pcs[UUID].allowScreenAudio;
 		session.pcs[UUID + "_screen"].allowDrawing = session.pcs[UUID].allowDrawing;
+		session.pcs[UUID + "_screen"].drawControlAllowed = false;
 		if (session.pcs[UUID + "_screen"].allowDrawing) {
 			if (session.screenShareElement && session.screenShareElement.syncDrawOnVideo) {
 				session.screenShareElement.syncDrawOnVideo();
@@ -64284,9 +66022,6 @@ async function createSecondStream() {
 			constraints.audio.noiseSuppression = true;
 		}
 
-		if (session.voiceIsolation === true) {
-			constraint.audio.voiceIsolation = true;
-		}
 		//if (audio == false) {
 		//	constraints.audio = false;
 		//}

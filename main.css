@@ -150,6 +150,10 @@ table {
 .buttonContainer button {
 	margin: 5px 2px;
 }
+.buttonContainer button.pressed {
+	background: #d64242;
+	color: #fff;
+}
 
 .promptModalLabel{
 	cursor: pointer;
@@ -2690,21 +2694,22 @@ label {
 	position: absolute;
 	content: '';
 	height: 7px;
-	width: inherit;
+	width: 50px;
 	background: #000;
-	left: 0;
+	left: 50%;
+	margin-left: -25px;
 	font-weight: bold;
 	transition: all .3s ease-in;
 }
 
 .inner:before {
 	top: 50%;
-	transform: rotate(45deg);
+	transform: translateY(-50%) rotate(45deg);
 }
 
 .inner:after {
-	bottom: 50%;
-	transform: rotate(-45deg);
+	top: 50%;
+	transform: translateY(-50%) rotate(-45deg);
 }
 
 .outer:hover .labelclass {
@@ -2713,15 +2718,15 @@ label {
 
 .outer:hover .inner:before,
 .outer:hover .inner:after {
-	transform: rotate(0);
+	transform: translateY(-50%) rotate(0);
 }
 
 .outer:hover .inner:before {
-	top: 0;
+	top: 15%;
 }
 
 .outer:hover .inner:after {
-	bottom: 0;
+	top: 85%;
 }
 .microphoneBackground{
 	background-image: url("data:image/svg+xml,%0A%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M 13 4 C 11.90625 4 11 4.90625 11 6 L 11 18 C 11 19.09375 11.90625 20 13 20 L 19 20 C 20.09375 20 21 19.09375 21 18 L 21 6 C 21 4.90625 20.09375 4 19 4 Z M 13 6 L 19 6 L 19 18 L 13 18 Z M 7 14 L 7 18 C 7 21.300781 9.699219 24 13 24 L 15 24 L 15 26 L 11 26 L 11 28 L 21 28 L 21 26 L 17 26 L 17 24 L 19 24 C 22.300781 24 25 21.300781 25 18 L 25 14 L 23 14 L 23 18 C 23 20.21875 21.21875 22 19 22 L 13 22 C 10.78125 22 9 20.21875 9 18 L 9 14 Z'/%3E%3C/svg%3E")!important;
@@ -4230,6 +4235,34 @@ label {
 	overflow: hidden;
 	display: block;
 	min-height: 174px;
+}
+.directorBlock.director-customizer-scroll {
+	max-height: min(40vh, 255px);
+	overflow-x: hidden;
+	overflow-y: scroll;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255,255,255,.6) rgba(0,0,0,.2);
+	padding-bottom: 10px;
+}
+.directorBlock.director-customizer-scroll > div,
+.directorBlock.director-customizer-scroll > div > div {
+	vertical-align: top;
+}
+.directorBlock.director-customizer-scroll::-webkit-scrollbar {
+	width: 10px;
+}
+.directorBlock.director-customizer-scroll::-webkit-scrollbar-track {
+	background: rgba(0,0,0,.18);
+}
+.directorBlock.director-customizer-scroll::-webkit-scrollbar-thumb {
+	background: rgba(255,255,255,.55);
+	border-radius: 8px;
+	border: 2px solid rgba(0,0,0,.18);
+}
+.directorBlock.director-customizer-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(255,255,255,.75);
 }
 .directorBlock:nth-child(1) {
 	background-color: var(--blue-accent);
@@ -6611,6 +6644,44 @@ button.toggleSettings,
 .roomnotes {
 	margin-top: 10px;
 }
+.roomnotes-toggle {
+	border: 1px solid rgba(255,255,255,.2);
+	border-radius: 4px;
+	padding: 7px 12px;
+}
+ul#roomnotes {
+	background: rgba(255,255,255,.08);
+	border: 1px solid rgba(255,255,255,.14);
+	border-radius: 6px;
+	color: inherit;
+	line-height: 1.45;
+	margin: 14px auto 0 auto;
+	padding: 14px 18px 14px 34px;
+}
+ul#roomnotes i {
+	color: inherit;
+	font-style: normal;
+	font-weight: 700;
+}
+ul#roomnotes li {
+	margin: 5px 0;
+}
+ul#roomnotes a {
+	color: var(--a-darker-link);
+	font-weight: 600;
+}
+ul#roomnotes a:visited {
+	color: var(--a-darker-visited);
+}
+ul#roomnotes a:hover,
+ul#roomnotes a:focus {
+	color: var(--a-darker-hover);
+}
+body.darktheme ul#roomnotes {
+	background: rgba(255,255,255,.07);
+	border-color: rgba(255,255,255,.18);
+	color: var(--discord-text);
+}
 .randomRoomName{
 	position: absolute;
 	margin: 3px;
@@ -6907,6 +6978,8 @@ button.toggleSettings,
 	content: "\f256"; }
 .la-phone-slash:before {
 	content: "\f3dd;"; }
+.la-map-marker-alt:before {
+	content: "\f3c5"; }
 .la-dot-circle:before {
 	content: "\f192"; }
 .la-bug:before {
@@ -8247,4 +8320,9 @@ body.cleanOutput .tipIconOverlay,
 .tipOnboardingBtn:hover {
     background: #5b6eae;
     text-decoration: none;
+}
+
+video.viewchroma-source-hidden {
+    visibility: hidden !important;
+    pointer-events: none !important;
 }

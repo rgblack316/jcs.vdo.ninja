@@ -300,6 +300,12 @@
 			if (urlParams.has("id")) {
 				streamID = urlParams.get("id");
 			}
+
+			function escapeHTML(value) {
+				const div = document.createElement("div");
+				div.textContent = value == null ? "" : String(value);
+				return div.innerHTML;
+			}
 		
 			var bitrate = {
 				element: "bitrate-graph",
@@ -346,6 +352,9 @@
 				  document.getElementById("container").innerHTML = "<h3>Quality Test Results</h3>";
 				  
 				  arr.forEach(data => {
+					if (!data || typeof data !== "object") {
+					  return;
+					}
 					if ("bitrate" in data) {
 					  updateData("bitrate", data.bitrate);
 					  if (data.bitrate !== null) {
@@ -386,8 +395,10 @@
 					}
 					
 					if (data.codecs) {
-						var videoCodecs = Object.keys(data.codecs.video).join(', ');
-						var audioCodecs = Object.keys(data.codecs.audio).join(', ');
+						var videoCodecData = data.codecs.video || {};
+						var audioCodecData = data.codecs.audio || {};
+						var videoCodecs = Object.keys(videoCodecData).map(escapeHTML).join(', ');
+						var audioCodecs = Object.keys(audioCodecData).map(escapeHTML).join(', ');
 						
 						if (videoCodecs) {
 							document.getElementById("details").innerHTML += "<br /><b>Supported video codecs:</b> " + videoCodecs + "<br />";
@@ -397,15 +408,15 @@
 						}
 						
 						// Check for optimal codecs
-						if (data.codecs.video.h264 || data.codecs.video.vp9) {
+						if (videoCodecData.h264 || videoCodecData.vp9) {
 							document.getElementById("details").innerHTML += "<small><i>(Good codec support for streaming)</i></small><br />";
-						} else if (!data.codecs.video.h264) {
+						} else if (!videoCodecData.h264) {
 							document.getElementById("details").innerHTML += "<small><i>(H.264 codec support not detected, which may limit compatibility)</i></small><br />";
 						}
 					}
 
 					if (data.userRegion) {
-						document.getElementById("details").innerHTML += "<br /><b>User region:</b> " + data.userRegion + "<br />";
+						document.getElementById("details").innerHTML += "<br /><b>User region:</b> " + escapeHTML(data.userRegion) + "<br />";
 					}
 					
 					if (("hostMode" in data) && ("srflxMode" in data)){
@@ -446,8 +457,9 @@
 					}
 					if ("info" in data){
 						if (data.info.Browser){
-							document.getElementById("details").innerHTML += "<br /><b>Browser used:</b> "+data.info.Browser+"<br />";
-							if (!data.info.Browser.startsWith("Chromium")){
+							var browserName = String(data.info.Browser);
+							document.getElementById("details").innerHTML += "<br /><b>Browser used:</b> "+escapeHTML(browserName)+"<br />";
+							if (!browserName.startsWith("Chromium")){
 								document.getElementById("details").innerHTML += "<h3>A Chromium-based browser is recommended.</h3>";
 							} 
 						}
@@ -457,38 +469,41 @@
 							}
 						}
 						if (data.info.platform){
-							document.getElementById("details").innerHTML += "<br /><b>Platform (os):</b> "+data.info.platform+"<br />";
-							if (data.info.platform.toLowerCase() == "macintel"){
+							var platformName = String(data.info.platform);
+							document.getElementById("details").innerHTML += "<br /><b>Platform (os):</b> "+escapeHTML(platformName)+"<br />";
+							if (platformName.toLowerCase() == "macintel"){
 								document.getElementById("details").innerHTML += "<i>(Intel or Apple Silicon)</i><br />";
 							}
 						}
 						if (data.info.gpGPU){
-							document.getElementById("details").innerHTML += "<br /><b>GPU:</b> "+data.info.gpGPU+"<br />";
+							document.getElementById("details").innerHTML += "<br /><b>GPU:</b> "+escapeHTML(data.info.gpGPU)+"<br />";
 						}
 						if (data.info.CPU){
-							document.getElementById("details").innerHTML += "<br /><b>CPU:</b> "+data.info.CPU+"<br />";
+							document.getElementById("details").innerHTML += "<br /><b>CPU:</b> "+escapeHTML(data.info.CPU)+"<br />";
 						}
 						
 						if (data.info.conn_type){
-							document.getElementById("details").innerHTML += "<br /><b>Connection type:</b> "+data.info.conn_type+"<br />";
-							if (data.info.conn_type == "wifi"){
+							var connectionType = String(data.info.conn_type);
+							document.getElementById("details").innerHTML += "<br /><b>Connection type:</b> "+escapeHTML(connectionType)+"<br />";
+							if (connectionType == "wifi"){
 								document.getElementById("details").innerHTML += "<h3>Avoid using WiFi if at all possible</h3>";
 							}
 							
 						}
 					}
 					if (data.encoder){
-						if (data.encoder.toLowerCase() == "libvpx"){
+						var encoderName = String(data.encoder);
+						if (encoderName.toLowerCase() == "libvpx"){
 							document.getElementById("details").innerHTML += "<br /><b>Default video codec used:</b> VP8<br />";
 						} else {
-							document.getElementById("details").innerHTML += "<br /><b>Default video codec used:</b> "+data.encoder.toUpperCase()+"<br />";
+							document.getElementById("details").innerHTML += "<br /><b>Default video codec used:</b> "+escapeHTML(encoderName.toUpperCase())+"<br />";
 						}
 					}
 				});
 				// container
 				
 				if (maxResolution){
-					document.getElementById("details").innerHTML += "<br /><b>Highest video resolution reached:</b> "+maxResolution+"<br />";
+					document.getElementById("details").innerHTML += "<br /><b>Highest video resolution reached:</b> "+escapeHTML(maxResolution)+"<br />";
 				}
 				
 				
@@ -547,20 +562,26 @@
 					  " occurrences of packet loss > 2%<br><small><i>(Spikes in packet loss can cause video freezes or audio dropouts even if average packet loss is low)</i></small></div>";
 				  }
 				  
-				  // Render the codec details button (original code)
-				  if (arr.some(data => data.codecs || data.detectedCodecs)) {
-					document.getElementById("details").innerHTML += `<br />
-					  <button id="view-codec-details" onclick="viewCodecDetails('${streamID}')">View Codec Support Details</button>
-					`;
+				  // Render the codec details button
+				  if (arr.some(data => data && (data.codecs || data.detectedCodecs))) {
+					const details = document.getElementById("details");
+					const button = document.createElement("button");
+					button.id = "view-codec-details";
+					button.textContent = "View Codec Support Details";
+					button.addEventListener("click", function () {
+					  window.viewCodecDetails(streamID);
+					});
+					details.appendChild(document.createElement("br"));
+					details.appendChild(button);
 					
 					window.viewCodecDetails = function(resultsId) {
-					  window.open(`./codecs.html?results=${resultsId}`, '_blank');
+					  window.open(`./codecs.html?results=${encodeURIComponent(resultsId)}`, '_blank');
 					};
 				  }
 				}
 			
 			var xmlhttp = new XMLHttpRequest();
-			var url = "https://record.vdo.workers.dev/?name="+streamID;
+			var url = "https://record.vdo.workers.dev/?name="+encodeURIComponent(streamID);
 
 			xmlhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == 200) {
@@ -614,7 +635,7 @@
 					stat.data = 0;
 				}
 
-				var text = (canvas.previousElementSibling.innerHTML = stat.data);
+				var text = (canvas.previousElementSibling.textContent = stat.data);
 
 				var height = context.canvas.height;
 				var width = context.canvas.width;
