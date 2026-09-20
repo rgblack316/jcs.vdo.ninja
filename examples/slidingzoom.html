@@ -1,10 +1,10 @@
 <html>
-<head><title>PTZ Remote Controller</title>
+<head><title>Sliding Zoom Controller - VDO.Ninja</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
 <meta content="utf-8" http-equiv="encoding" />
 <meta name="copyright" content="&copy; 2025 Steve Seguin" />
-<meta name="license" content="https://github.com/steveseguin/vdo.ninja/LICENSE.md" />
+<meta name="license" content="https://github.com/steveseguin/vdo.ninja/blob/master/examples/LICENSE" />
 <meta name="sourcecode" content="https://github.com/steveseguin/vdo.ninja" />
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://vdo.ninja/">
@@ -145,6 +145,11 @@ if (urlParams.has("view") || urlParams.has("v")) {
 
 function loadIframes() { 
     var iframesrc = document.getElementById("viewlink").value;
+    var linkURL = document.createElement("a");
+    linkURL.href = iframesrc;
+    if (linkURL.protocol === "javascript:") {
+        return;
+    }
     
     document.getElementById("viewlink").parentNode.parentNode.removeChild(document.getElementById("viewlink").parentNode);
     document.getElementById("container1").style.display="inline-block";

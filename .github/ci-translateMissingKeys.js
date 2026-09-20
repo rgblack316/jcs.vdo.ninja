@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { createOpenCodeClient } = require('./opencode-client.cjs');
 
 const rootDir = path.join(__dirname, "..");
 const translationsDir = path.join(rootDir, "translations");
@@ -26,6 +27,7 @@ const apiProviderInput = (
   ""
 ).toLowerCase();
 const apiToken =
+  process.env.OPENCODE_API_KEY ||
   process.env.TRANSLATION_API_TOKEN ||
   process.env.OPENCODE_ZEN_API_TOKEN ||
   process.env.OC_API_KEY ||
@@ -33,7 +35,7 @@ const apiToken =
 const apiUrl =
   process.env.TRANSLATION_API_URL ||
   process.env.ZAI_API_URL ||
-  "https://opencode.ai/zen/v1/chat/completions";
+  "https://opencode.ai/zen/go/v1/chat/completions";
 const apiProvider =
   apiProviderInput ||
   (apiUrl.includes("opencode.ai/zen")
@@ -44,7 +46,7 @@ const apiProvider =
 const defaultModelChain =
   apiProvider === "zai"
     ? "glm-5.1"
-    : "deepseek-v4-flash-free,nemotron-3-super-free,big-pickle,minimax-m2.7";
+    : "auto";
 const modelChain = (
   process.env.TRANSLATION_MODELS ||
   process.env.TRANSLATION_MODEL ||
@@ -55,6 +57,11 @@ const modelChain = (
   .map((model) => model.trim())
   .filter(Boolean);
 const usedRemoteModels = new Set();
+const openCodeClient = createOpenCodeClient({
+  apiKey: apiToken,
+  userAgent: 'vdo-ninja-translation-agent/1.0',
+  sessionId: [process.env.GITHUB_REPOSITORY || 'vdo.ninja', process.env.GITHUB_RUN_ID || require('node:crypto').randomUUID(), 'translations'].join(':')
+});
 
 const languageNames = {
   ar: "Arabic",
@@ -505,6 +512,14 @@ async function translateBatch(languageCode, entries, selectedModel) {
       }),
     },
   ];
+  if (apiProvider === 'opencode') {
+    const result = await openCodeClient.complete({
+      messages, maxTokens: 4096, models: modelChain, json: true,
+      validate: text => normalizeTranslatedBatch(languageCode, entries, parseJsonObject(text))
+    });
+    usedRemoteModels.add(result.model);
+    return result.value;
+  }
   const payload = {
     model: selectedModel,
     stream: false,
@@ -556,7 +571,7 @@ async function translateBatch(languageCode, entries, selectedModel) {
 async function translateBatchWithFallback(languageCode, entries) {
   let lastError = null;
 
-  for (const selectedModel of modelChain) {
+  for (const selectedModel of (apiProvider === 'opencode' ? ['auto'] : modelChain)) {
     try {
       console.log(
         `Trying ${apiProvider} model ${selectedModel} for ${languageCode}: ${entries.length} keys`
@@ -566,7 +581,7 @@ async function translateBatchWithFallback(languageCode, entries) {
         entries,
         await translateBatch(languageCode, entries, selectedModel)
       );
-      usedRemoteModels.add(selectedModel);
+      if (apiProvider !== 'opencode') usedRemoteModels.add(selectedModel);
       return translated;
     } catch (error) {
       lastError = error;

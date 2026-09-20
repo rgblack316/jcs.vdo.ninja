@@ -1,5 +1,7 @@
 <html>
-<head><title>Toggle Two Mutes Controller</title>
+<head>
+	<meta name="description" content="Toggle mute on two remote guests with single-click controls for quick audio checks." />
+	<link rel="canonical" href="https://vdo.ninja/examples/switchmics.html" /><title>Switch Mics - VDO.Ninja</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
 <style>
@@ -158,6 +160,15 @@ function loadIframes(){
 
 	var iframesrca = document.getElementById("viewlinka").value;
 	var iframesrcb = document.getElementById("viewlinkb").value;
+	var linkURL = document.createElement("a");
+	linkURL.href = iframesrca;
+	if (linkURL.protocol === "javascript:") {
+		return;
+	}
+	linkURL.href = iframesrcb;
+	if (linkURL.protocol === "javascript:") {
+		return;
+	}
 	
 	document.getElementById("deleteme").remove()
 	delete document.getElementById("deleteme");

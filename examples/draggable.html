@@ -1,5 +1,19 @@
 <html>
-<head><title>Draggable Multi-View - VDO.Ninja</title>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="description" content="Arrange several viewer windows manually by dragging and resizing thumbnails." />
+	<link rel="canonical" href="https://vdo.ninja/examples/draggable.html" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="VDO.Ninja" />
+	<meta property="og:url" content="https://vdo.ninja/examples/draggable.html" />
+	<meta property="og:title" content="Draggable Multi-View - VDO.Ninja" />
+	<meta property="og:description" content="Arrange several viewer windows manually by dragging and resizing thumbnails." />
+	<meta property="og:image" content="https://vdo.ninja/media/vdoNinja_logo_full.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Draggable Multi-View - VDO.Ninja" />
+	<meta name="twitter:description" content="Arrange several viewer windows manually by dragging and resizing thumbnails." />
+	<meta name="twitter:image" content="https://vdo.ninja/media/vdoNinja_logo_full.png" /><title>Draggable Multi-View - VDO.Ninja</title>
 <style>
 body{
 	padding:0;
@@ -287,6 +301,12 @@ function initResizeElement(p) {
 }
   
 function loadIframe(){
+	var iframesrc = document.getElementById("viewlink").value || "https://vdo.ninja";
+	var linkURL = document.createElement("a");
+	linkURL.href = iframesrc;
+	if (linkURL.protocol === "javascript:") {
+		return;
+	}
 
 	var iframeContainer = document.createElement("div");
 	iframeContainer.className="popup";
@@ -313,7 +333,7 @@ function loadIframe(){
 
 	var iframe = document.createElement("iframe");
 	iframe.allow="autoplay";
-	iframe.src = document.getElementById("viewlink").value || "https://vdo.ninja";
+	iframe.src = iframesrc;
 	iframe.style.width="325px";
 	iframe.style.height="420px";
 	

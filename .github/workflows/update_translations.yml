@@ -17,9 +17,7 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: read-all
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -27,32 +25,35 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-node@v4
+        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
           with:
             node-version: '20'
         - name: Generate missing translations
           env:
             OC_API_KEY: ${{ secrets.OC_API_KEY }}
             TRANSLATION_API_PROVIDER: opencode
-            TRANSLATION_API_URL: https://opencode.ai/zen/v1/chat/completions
-            TRANSLATION_MODELS: deepseek-v4-flash-free,nemotron-3-super-free,big-pickle,minimax-m2.7
+            TRANSLATION_API_URL: https://opencode.ai/zen/go/v1/chat/completions
+            TRANSLATION_MODELS: auto
             TARGET_LANGUAGES: all
             MAX_TRANSLATION_KEYS: "50"
           run: node .github/ci-translateMissingKeys.js
         - name: Create Pull Request
-          uses: peter-evans/create-pull-request@v6
+          uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
           with:
             commit-message: Generated missing translations
             branch: generated_translations
             title: "[VDONinja Bot] Generated missing translations"
             body: |
-              Generated missing translation keys using OpenCode Zen.
+              Generated missing translation keys using OpenCode (free models, then Go).
 
-              - Model chain: `deepseek-v4-flash-free,nemotron-3-super-free,big-pickle,minimax-m2.7`
+              - Model chain: `auto`
               - Target languages: `all`
               - Maximum keys: `50`
             labels: i18n

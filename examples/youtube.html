@@ -1,5 +1,7 @@
 <html>
-<head><title>YouTube Chat + VDON</title>
+<head>
+	<meta name="description" content="Co-host YouTube live chat with a VDO.Ninja guest feed." />
+	<link rel="canonical" href="https://vdo.ninja/examples/youtube.html" /><title>YouTube Chat + Video - VDO.Ninja</title>
 <meta name="viewport" content="width=device-width, initial-scale=0.7, maximum-scale=1.0, user-scalable=yes" />
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
 <style>
@@ -89,7 +91,7 @@ function updateLink(event){
 	path = path.replace("/examples","");
 	
 	var viewLink = "https://"+path+"/?view="+streamid;
-	document.getElementById("viewLink").innerHTML = "View link is: "+viewLink;
+	document.getElementById("viewLink").textContent = "View link is: "+viewLink;
 }
 
 function loadIframes(url=false){ 

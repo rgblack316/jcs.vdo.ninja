@@ -1,5 +1,7 @@
 <html>
-<head><title>SocialStream + Video</title>
+<head>
+	<meta name="description" content="Switch between multiple social chat integrations alongside a VDO.Ninja feed." />
+	<link rel="canonical" href="https://vdo.ninja/examples/socal.html" /><title>SocialStream Hub - VDO.Ninja</title>
 <meta name="viewport" content="width=device-width, initial-scale=0.7, maximum-scale=1.0, user-scalable=yes" />
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
 <style>
@@ -142,6 +144,11 @@ function loadIframes(url=false){
 
 	var roomname = document.getElementById("viewlink").value;
 	var room2 = document.getElementById("social").value;
+	var linkURL = document.createElement("a");
+	linkURL.href = room2;
+	if (linkURL.protocol === "javascript:") {
+		return;
+	}
 	
 	document.getElementById("clean").parentNode.removeChild(document.getElementById("clean"));
 	document.getElementById("container1").style.display="inline-block";

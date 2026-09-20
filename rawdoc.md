@@ -138,7 +138,6 @@ description: All useful links you might take a look at
 | Voice-chat-room app                                                             | [https://vdo.ninja/alpha/meet](https://vdo.ninja/alpha/meet)                                                                                           |
 | Device Support                                                                  | [https://vdo.ninja/supports](https://vdo.ninja/supports)                                                                                               |
 | Device IDs                                                                      | [https://vdo.ninja/devices](https://vdo.ninja/devices)                                                                                                 |
-| Web-based Media Conversion Tools                                                | [https://isolated.vdo.ninja/convert](https://isolated.vdo.ninja/convert)                                                                               |
 | Electron                                                                        | [https://vdo.ninja/electron](https://vdo.ninja/electron)                                                                                               |
 | Video streaming quality test                                                    | [https://vdo.ninja/speedtest](https://vdo.ninja/speedtest)                                                                                             |
 | Remote Monitor                                                                  | [https://vdo.ninja/monitor](https://vdo.ninja/monitor)                                                                                                 |
@@ -675,6 +674,7 @@ Please report bugs. It's a first release, using the alpha version of VDO.Ninja, 
     * [\&hideplaybutton](advanced-settings/mixer-scene-parameters/and-hideplaybutton.md)
     * [\&motiondetection](advanced-settings/mixer-scene-parameters/and-motiondetection-alpha.md)
     * [\&scene](advanced-settings/view-parameters/scene.md)
+    * [\&scenerestore](advanced-settings/mixer-scene-parameters/and-scenerestore.md)
     * [\&scenetype](advanced-settings/mixer-scene-parameters/scenetype.md)
     * [\&autoadd](newly-added-parameters/and-autoadd.md)
     * [\&hiddenscenebitrate](newly-added-parameters/and-hiddenscenebitrate.md)
@@ -4358,6 +4358,41 @@ You have to add them to [`&scene`](../view-parameters/scene.md) or [`&view`](../
 
 <table><thead><tr><th width="150">Parameter</th><th>Explanation</th></tr></thead><tbody><tr><td><a href="../view-parameters/scene.md"><code>&#x26;scene</code></a></td><td>Defines the link to be treated like a scene</td></tr><tr><td><a href="scenetype.md"><code>&#x26;scenetype</code></a></td><td>Shows only the last added video to a scene</td></tr><tr><td><a href="../../newly-added-parameters/and-autoadd.md"><code>&#x26;autoadd</code></a></td><td>Auto-adds the specified stream IDs to the scene</td></tr><tr><td><a href="../../newly-added-parameters/and-hiddenscenebitrate.md"><code>&#x26;hiddenscenebitrate</code></a></td><td>Can be used to force videos not added yet to a scene to run at the specified bitrate</td></tr><tr><td><a href="../../newly-added-parameters/and-preloadbitrate.md"><code>&#x26;preloadbitrate</code></a></td><td>Can be used to change the pre-load target bitrate for scenes</td></tr><tr><td><a href="../newly-added-parameters/and-waitimage.md"><code>&#x26;waitimage</code></a></td><td>You can add a custom image which shows up while waiting for the <a href="../view-parameters/scene.md"><code>&#x26;scene</code></a> or <a href="../view-parameters/view.md"><code>&#x26;view</code></a> link</td></tr><tr><td><a href="../newly-added-parameters/and-waitmessage.md"><code>&#x26;waitmessage</code></a></td><td>You can add a custom message which shows up while waiting for the <a href="../view-parameters/scene.md"><code>&#x26;scene</code></a> or <a href="../view-parameters/view.md"><code>&#x26;view</code></a> link</td></tr><tr><td><a href="../newly-added-parameters/and-waittimeout.md"><code>&#x26;waittimeout</code></a></td><td>Specifies a delay for <a href="../newly-added-parameters/and-waitimage.md"><code>&#x26;waitimage</code></a> and <a href="../newly-added-parameters/and-waitmessage.md"><code>&#x26;waitmessage</code></a> while waiting for the <a href="../view-parameters/scene.md"><code>&#x26;scene</code></a> or <a href="../view-parameters/view.md"><code>&#x26;view</code></a> link</td></tr></tbody></table>
 ---
+description: Restores a guest's selected scene assignments after reconnecting
+---
+
+# &scenerestore
+
+Director Option! ([`&director`](../../viewers-settings/director.md), [`&room`](../../general-settings/room.md))
+
+## Details
+
+Add `&scenerestore` to the director URL to let the main director restore a guest's manual scene assignment after that guest disconnects and rejoins.
+
+Example:
+
+```
+https://vdo.ninja/?director=ROOMNAME&scenerestore
+```
+
+This is useful when guests are manually assigned to scene outputs such as `&scene=1`, `&scene=2`, or `&scene=3`, and a guest drops because of a poor connection.
+
+When enabled, the main director creates a temporary restore lease when a guest is placed into a scene. If that guest reconnects with the matching restore token while the lease is still active, the director can reapply the previous scene selection.
+
+The lease auto-renews while the guest remains connected, so long-running sessions continue to be restorable. After a disconnect, or after the last scene action for that guest, the lease expires after 15 minutes. If the director hangs up, disconnects, or otherwise revokes the guest, the lease expires immediately.
+
+`&scenerestore` is opt-in. It does not bypass room authentication, director approval, queue/hold modes, or the normal director trust checks.
+
+## Related
+
+{% content-ref url="../view-parameters/scene.md" %}
+[scene.md](../view-parameters/scene.md)
+{% endcontent-ref %}
+
+{% content-ref url="scenetype.md" %}
+[scenetype.md](scenetype.md)
+{% endcontent-ref %}
+---
 description: Shows only the last added video to a scene
 ---
 
@@ -4858,11 +4893,7 @@ Video recordings will be saved as Video + PCM audio format.
 
 WebM is a universal container of sorts when used within a Chromium browser, but it doesn't always work well for VLC or popular video editors. FFmpeg can be used to convert to other formats though, including MP4 and WAV, typically without transcoding.
 
-To make converting from WebM to other formats easier, a version of FFmpeg is hosted within VDO.Ninja for this. It can be located here at [https://vdo.ninja/convert](https://vdo.ninja/convert), with several of the most common conversion options ready to go, such as WebM-PCM to WAV-PCM.
-
-Due to memory limits and other browser limitations, this FFmpeg tool can only process files under about 2-gigabytes in size. For larger files, you may need to download and use a desktop version of [FFmpeg](https://ffmpeg.org/download.html) instead.
-
-FFmpeg command lines are provided if you choose to run FFmpeg yourself locally, but if that is still to complicated, you can grab [Handbrake ](https://handbrake.fr/)for free; it's a GUI-based option that is fairly accessible.
+Use a desktop version of [FFmpeg](https://ffmpeg.org/download.html) to convert files locally. [HandBrake](https://handbrake.fr/) is a graphical alternative for video conversion.
 
 ## Related
 
@@ -4904,7 +4935,7 @@ The recording should stop automatically when the guest hangs-ups manually. I try
 
 It will automatically capture with stereo audio and echo cancellation off, if available.
 
-You can use [https://isolated.vdo.ninja/convert](https://isolated.vdo.ninja/convert) to convert from WebM file formats to OPUS or WAV file formats, **without transcoding and without downloads**. [More about converting from WebM to MP4 or WAV here](and-record.md#converting-and-playing-back-webm).
+See [converting from WebM to MP4 or WAV](and-record.md#converting-and-playing-back-webm) for local conversion options.
 
 ### Recording as the director
 
@@ -4932,15 +4963,9 @@ The chunked mode (as of June 2022) is still a maturing feature. Please report an
 
 WebM is a universal container of sorts when used within a Chromium browser, but it doesn't always work well for VLC or popular video editors. FFmpeg can be used to convert to other formats though, including MP4 and WAV, typically without transcoding.
 
-To make converting from WebM to other formats easier, a version of FFmpeg is hosted within VDO.Ninja for this. It can be located here at [https://vdo.ninja/convert](https://vdo.ninja/convert), with several of the most common conversion options ready to go, such as WebM-PCM to WAV-PCM.
+Use a desktop version of [FFmpeg](https://ffmpeg.org/download.html) to convert files locally. [HandBrake](https://handbrake.fr/) is a graphical alternative for video conversion.
 
-Due to memory limits and other browser limitations, this FFmpeg tool can only process files under about 2-gigabytes in size. For larger files, you may need to download and use a desktop version of [FFmpeg](https://ffmpeg.org/download.html) instead.
-
-FFmpeg command lines are provided if you choose to run FFmpeg yourself locally, but if that is still to complicated, you can grab [Handbrake ](https://handbrake.fr/)for free; it's a GUI-based option that is fairly accessible.
-
-Lastly, sometimes a video recorded by VDO.Ninja will have a variable resolution or/and frame rate, which can cause problems with some video editors. For example, the quality might be stuck low, or it might freeze after a few seconds. In these cases, you may need to transcode the video to a fixed resolution and frame rate using FFmpeg (or Handbrake) first, before using.. Transcoding is very slow in the browser, so I'd recommend you download Handbrake or FFmpeg for this task.
-
-FFmpeg in the browser; up to 4-gb file sizes
+Lastly, sometimes a video recorded by VDO.Ninja will have a variable resolution or/and frame rate, which can cause problems with some video editors. For example, the quality might be stuck low, or it might freeze after a few seconds. In these cases, you may need to transcode the video to a fixed resolution and frame rate using FFmpeg (or Handbrake) first, before using.. Use a desktop version of HandBrake or FFmpeg for this task.
 
 ### Please note:
 
@@ -12553,11 +12578,17 @@ General Option! ([`&push`](../source-settings/push.md), [`&room`](room.md), [`&v
 
 Example: `&turn=steve;setupYourOwnPlease;turn:turn.vdo.ninja:443`
 
+Multiple TURN servers can be provided by repeating the parameter:
+
+`&turn=user;password;turn:turn1.example.com:3478?transport=udp&turn=user;password;turn:turn2.example.com:443?transport=tcp`
+
 <table><thead><tr><th width="283">Value</th><th>Description</th></tr></thead><tbody><tr><td>(user;pwd;turnserveraddress)</td><td>Set this TURN server to turnserveraddress with username user and password pwd</td></tr><tr><td><code>false</code> | <code>off</code></td><td>Disable the use of the TURN servers</td></tr></tbody></table>
 
 ## Details
 
 Several TURN servers are provided by Steve for free, for now, and these are automatically selected based on your geographic location. You may wish to use your own privately hosted TURN server instead though, and the `&turn` is one flexible way to select it.
+
+When `&turn` is repeated, each custom server is added to the WebRTC ICE server configuration in URL order. This allows applications to provide fallback servers or multiple transports.
 
 ### Locations
 
@@ -20494,7 +20525,7 @@ Sender-Side Option! ([`&push`](push.md))
 
 Example: `&effects=7` or `&effects=zoom`
 
-<table><thead><tr><th width="227">Value</th><th>Description</th></tr></thead><tbody><tr><td>(no value given)</td><td>Shows a "Digital Video Effects" panel when setting up devices</td></tr><tr><td><code>0</code> | <code>false</code> | <code>off</code></td><td>Disables effects</td></tr><tr><td><code>1</code> | <code>facetracking</code></td><td>Face tracker</td></tr><tr><td><code>-1</code></td><td>Flip image</td></tr><tr><td><code>2</code></td><td>Mirror image</td></tr><tr><td><code>-2</code></td><td>Flip + mirror image</td></tr><tr><td><code>3</code></td><td>Background blur</td></tr><tr><td><code>4</code></td><td>Virtual Greenscreen</td></tr><tr><td><code>5</code></td><td>Background replacement</td></tr><tr><td><code>6</code></td><td>Avatar</td></tr><tr><td><code>7</code> | <code>zoom</code></td><td>Zoom</td></tr><tr><td><code>8</code></td><td><a data-mention href="effects.md#and-effects-8">#and-effects-8</a></td></tr><tr><td><code>9</code></td><td>Face tracking</td></tr><tr><td><code>10</code></td><td>Face tracking</td></tr><tr><td><code>11</code> | <code>anon</code></td><td>Anonymous face mask</td></tr><tr><td><code>13</code></td><td>New experimental background blur effect; it's not supported by most browsers/systems and its in origin trial</td></tr></tbody></table>
+<table><thead><tr><th width="227">Value</th><th>Description</th></tr></thead><tbody><tr><td>(no value given)</td><td>Shows a "Digital Video Effects" panel when setting up devices</td></tr><tr><td><code>0</code> | <code>false</code> | <code>off</code></td><td>Disables effects</td></tr><tr><td><code>1</code> | <code>facetracking</code></td><td>Face tracker (legacy native FaceDetector auto-crop)</td></tr><tr><td><code>facecrop</code> | <code>autofacecrop</code></td><td>Auto face crop with native FaceDetector plus MediaPipe fallback</td></tr><tr><td><code>-1</code></td><td>Flip image</td></tr><tr><td><code>2</code></td><td>Mirror image</td></tr><tr><td><code>-2</code></td><td>Flip + mirror image</td></tr><tr><td><code>3</code></td><td>Background blur</td></tr><tr><td><code>4</code></td><td>Virtual Greenscreen</td></tr><tr><td><code>5</code></td><td>Background replacement</td></tr><tr><td><code>6</code></td><td>Face mesh overlay with bundled MediaPipe FaceLandmarker</td></tr><tr><td><code>7</code> | <code>zoom</code></td><td>Zoom</td></tr><tr><td><code>8</code></td><td><a data-mention href="effects.md#and-effects-8">#and-effects-8</a></td></tr><tr><td><code>9</code></td><td>Legacy Jeeliz face-box sample effect</td></tr><tr><td><code>10</code></td><td>Legacy dog ears and nose alias</td></tr><tr><td><code>11</code> | <code>anon</code></td><td>Anonymous face mask</td></tr><tr><td><code>13</code></td><td>New experimental background blur effect; it's not supported by most browsers/systems and its in origin trial</td></tr></tbody></table>
 
 ## Details
 
@@ -20520,6 +20551,18 @@ Please do enable Webassembly-SIMD support under `chrome://flags/` if you'd like 
 
 `&effects=1` requires the use of the Chromium experimental face detection API, as I'm using the built-in browser face-tracking model for this. You can enable the API flag here: `chrome://flags/#enable-experimental-web-platform-features`
 My hope is that this feature will eventually be enabled by default within Chromium, as loading a large ML model to do face detection otherwise is a bit heavy; you may need to enable this within the OBS CLI if wishing to use it there?
+
+### `&effects=facecrop`
+
+`&effects=facecrop`, `&autofacecrop`, and `&facecrop` enable the newer auto face crop effect. It keeps the sender's face framed by cropping and panning through the existing canvas effects pipeline. It first tries the browser's native `FaceDetector` API and falls back to the bundled MediaPipe face detector model when available. Existing `&facetracker`, `&facetracking`, and `&effects=1` links keep their original behavior.
+
+### `&effects=6`
+
+`&effects=6` and `&facemesh` render a face mesh overlay using the bundled MediaPipe FaceLandmarker model. The older TensorFlow.js face mesh path can still be requested with `&legacyfacemesh` or `&tfjsfacemesh`.
+
+### Legacy face effects
+
+`&effects=9` is a legacy Jeeliz sample effect that draws a face-tracking box. `&effects=10` is a legacy alias for the dog ears and nose effect. These values are kept for backwards compatibility.
 
 ### `&effects=8`
 
@@ -21564,7 +21607,7 @@ description: Useful tools that could help you make your stream better
 
 # Tech Demonstrations
 
-<table><thead><tr><th width="197">Tool</th><th width="549">Description</th></tr></thead><tbody><tr><td><a href="https://vdo.ninja/examples/">Overview</a></td><td>Overview of all the Tech Demonstrations</td></tr><tr><td><a href="https://vdo.ninja/examples/p2p.html">P2P</a></td><td>How to use VDO.Ninja as a data transport tunneling service</td></tr><tr><td><a href="https://vdo.ninja/twitch">Twitch</a></td><td>How to have a twitch live chat side-by-side with VDO.Ninja on the same screen (viewing Twitch chat while using VDO.Ninja on mobile)</td></tr><tr><td><a href="https://vdo.ninja/examples/youtube.html">YouTube</a></td><td>How to have a YouTube live chat side-by-side with VDO.Ninja on the same screen</td></tr><tr><td><a href="https://vdo.ninja/examples/dual.html">Dual</a></td><td>How to have two VDO.Ninja windows (or any windows really) open on the same page; Picture-in-Picture style</td></tr><tr><td><a href="https://vdo.ninja/examples/multi.html?rooms=room1xx,room2xx,room3xx">Multiple Rooms</a></td><td>How to have multiple director rooms open in a single tab; note the URL's <code>?rooms=xx,yy</code> command</td></tr><tr><td><a href="https://versus.cam/">versus.cam</a></td><td>How to use the IFRAME API to transport audio and video to the parent frame in Chrome</td></tr><tr><td><a href="https://vdo.ninja/examples/addtoscene.html">Add to scene</a></td><td>How to use the IFrame API to add/remove guests to a scene remotely</td></tr><tr><td><a href="https://vdo.ninja/examples/bigmutebutton.html">Big Mute Button</a></td><td>Mobile-friendly big-button for muting yourself easily</td></tr><tr><td><a href="https://vdo.ninja/examples/sensors.html">Sensors</a></td><td>How to transmit sensor and video data from a phone to a computer, drawing it to canvas.</td></tr><tr><td><a href="https://vdo.ninja/examples/sensoroverlay.html">Sensor Overlay</a></td><td>Overlay the incoming speed from remote mobile sensor data onto your video</td></tr><tr><td><a href="https://vdo.ninja/midi">MIDI</a></td><td>Demonstrates the MIDI API for VDO.Ninja</td></tr><tr><td><a href="https://vdo.ninja/examples/draggable.html">Draggable</a></td><td>Demonstrates how to drag multiple windows around, if you wanted to create a custom layout of elements. (experimental)</td></tr><tr><td><a href="https://vdo.ninja/examples/chatoverlay.html">Chat overlay</a></td><td>Example of a chat-only interface for VDO.Ninja; maybe dockable into OBS even.</td></tr><tr><td><a href="https://vdo.ninja/examples/iframe.outbound-stats.html">iFrame outbound stats</a></td><td>iframe.outbound-stats.html demonstrates how to get stats from VDO.Ninja using the IFRAME API</td></tr><tr><td><a href="https://vdo.ninja/examples/changepass.html">Change password</a></td><td>Lets you create passwords and related HASH values for VDO.Ninja rooms</td></tr><tr><td><a href="https://vdo.ninja/webhid">WebHID</a></td><td>WebHID demonstrates how to interface with a USB device, like a Streamdeck (mouse/keyboard not supported)</td></tr><tr><td><a href="https://vdo.ninja/examples/zoom.html">Zoom</a></td><td>A tool for letting you publish into VDO.Ninja, but then full-screen the window once setup, allowing for window-capturing into zoom.</td></tr><tr><td><a href="https://vdo.ninja/examples/obs_remote/index">OBS Remote</a></td><td>Also hosted on GitHub elsewhere, but it's an example of how to remotely control OBS using VDO.Ninja's tunneling abilities</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/overlay">Overlay</a></td><td>Create a sample of how to apply a custom full-page overlay on top of VDO.Ninja</td></tr><tr><td><a href="https://vdo.ninja/examples/powerpoint">PowerPoint Remote Control</a></td><td>Remote PowerPoint Web control via VDO.Ninja (IFrame API)</td></tr><tr><td><a href="https://vdo.ninja/examples/rotated.html">Rotate website</a></td><td>Lets you rotate a specific website 90, 270, or 180 degrees</td></tr><tr><td><a href="https://vdo.ninja/examples/waitingroom?room=TESTROOM123">Waiting room</a></td><td>Prompts a guest who is joining a room with a message if the director is not there yet</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/obsremote">OBS Remote Control</a></td><td>A code example of how to use the IFRAME API of VDO.Ninja to remotely control OBS</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/ptz">PTZ Remote Controller</a></td><td>Remotely control the pan tilt of a camera</td></tr></tbody></table>
+<table><thead><tr><th width="197">Tool</th><th width="549">Description</th></tr></thead><tbody><tr><td><a href="https://vdo.ninja/examples/">Overview</a></td><td>Overview of all the Tech Demonstrations</td></tr><tr><td><a href="https://vdo.ninja/examples/p2p.html">P2P</a></td><td>How to use VDO.Ninja as a data transport tunneling service</td></tr><tr><td><a href="https://vdo.ninja/twitch">Twitch</a></td><td>How to have a twitch live chat side-by-side with VDO.Ninja on the same screen (viewing Twitch chat while using VDO.Ninja on mobile)</td></tr><tr><td><a href="https://vdo.ninja/examples/youtube.html">YouTube</a></td><td>How to have a YouTube live chat side-by-side with VDO.Ninja on the same screen</td></tr><tr><td><a href="https://vdo.ninja/examples/dual.html">Dual</a></td><td>How to have two VDO.Ninja windows (or any windows really) open on the same page; Picture-in-Picture style</td></tr><tr><td><a href="https://vdo.ninja/examples/multi.html?rooms=room1xx,room2xx,room3xx">Multiple Rooms</a></td><td>How to have multiple director rooms open in a single tab; note the URL's <code>?rooms=xx,yy</code> command</td></tr><tr><td><a href="https://versus.cam/">versus.cam</a></td><td>How to use the IFRAME API to transport audio and video to the parent frame in Chrome</td></tr><tr><td><a href="https://vdo.ninja/examples/addtoscene.html">Add to scene</a></td><td>How to use the IFrame API to add/remove guests to a scene remotely</td></tr><tr><td><a href="https://vdo.ninja/examples/bigmutebutton.html">Big Mute Button</a></td><td>Mobile-friendly big-button for muting yourself easily</td></tr><tr><td><a href="https://vdo.ninja/examples/sensors.html">Sensors</a></td><td>How to transmit sensor and video data from a phone to a computer, drawing it to canvas.</td></tr><tr><td><a href="https://vdo.ninja/examples/sensoroverlay.html">Sensor Overlay</a></td><td>Overlay the incoming speed from remote mobile sensor data onto your video</td></tr><tr><td><a href="https://vdo.ninja/midi">MIDI</a></td><td>Demonstrates the MIDI API for VDO.Ninja</td></tr><tr><td><a href="https://vdo.ninja/examples/draggable.html">Draggable</a></td><td>Demonstrates how to drag multiple windows around, if you wanted to create a custom layout of elements. (experimental)</td></tr><tr><td><a href="https://vdo.ninja/examples/chatoverlay.html">Chat overlay</a></td><td>Example of a chat-only interface for VDO.Ninja; maybe dockable into OBS even.</td></tr><tr><td><a href="https://vdo.ninja/examples/changepass.html">Change password</a></td><td>Lets you create passwords and related HASH values for VDO.Ninja rooms</td></tr><tr><td><a href="https://vdo.ninja/webhid">WebHID</a></td><td>WebHID demonstrates how to interface with a USB device, like a Streamdeck (mouse/keyboard not supported)</td></tr><tr><td><a href="https://vdo.ninja/examples/zoom.html">Zoom</a></td><td>A tool for letting you publish into VDO.Ninja, but then full-screen the window once setup, allowing for window-capturing into zoom.</td></tr><tr><td><a href="https://vdo.ninja/examples/obs_remote/index">OBS Remote</a></td><td>Also hosted on GitHub elsewhere, but it's an example of how to remotely control OBS using VDO.Ninja's tunneling abilities</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/overlay">Overlay</a></td><td>Create a sample of how to apply a custom full-page overlay on top of VDO.Ninja</td></tr><tr><td><a href="https://vdo.ninja/examples/powerpoint">PowerPoint Remote Control</a></td><td>Remote PowerPoint Web control via VDO.Ninja (IFrame API)</td></tr><tr><td><a href="https://vdo.ninja/examples/rotated.html">Rotate website</a></td><td>Lets you rotate a specific website 90, 270, or 180 degrees</td></tr><tr><td><a href="https://vdo.ninja/examples/waitingroom?room=TESTROOM123">Waiting room</a></td><td>Prompts a guest who is joining a room with a message if the director is not there yet</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/obsremote">OBS Remote Control</a></td><td>A code example of how to use the IFRAME API of VDO.Ninja to remotely control OBS</td></tr><tr><td><a href="https://vdo.ninja/alpha/examples/ptz">PTZ Remote Controller</a></td><td>Remotely control the pan tilt of a camera</td></tr></tbody></table>
 # Teleprompter Tool
 
 [https://vdo.ninja/teleprompter](https://vdo.ninja/teleprompter)
@@ -21586,7 +21629,7 @@ description: Useful tools that could help you make your stream better
 
 # VDO Applications
 
-<table><thead><tr><th width="394">Tool</th><th>URL</th></tr></thead><tbody><tr><td>Device Support</td><td><a href="https://vdo.ninja/supports">https://vdo.ninja/supports</a></td></tr><tr><td>Device IDs</td><td><a href="https://vdo.ninja/devices">https://vdo.ninja/devices</a></td></tr><tr><td>Web-based Media Conversion Tools</td><td><a href="https://isolated.vdo.ninja/convert">https://isolated.vdo.ninja/convert</a></td></tr><tr><td>Electron</td><td><a href="https://vdo.ninja/electron">https://vdo.ninja/electron</a></td></tr><tr><td>Video streaming quality test</td><td><a href="https://vdo.ninja/speedtest">https://vdo.ninja/speedtest</a></td></tr><tr><td>Remote Monitor</td><td><a href="https://vdo.ninja/monitor">https://vdo.ninja/monitor</a></td></tr><tr><td>Companion</td><td><a href="https://companion.vdo.ninja/">https://companion.vdo.ninja/</a></td></tr><tr><td>MIDI Controller App</td><td><a href="https://vdo.ninja/alpha/remotemidi">https://vdo.ninja/alpha/remotemidi</a></td></tr><tr><td>API / IFRAME sandbox page for developer</td><td><a href="https://vdo.ninja/alpha/iframe">https://vdo.ninja/alpha/iframe</a></td></tr><tr><td>WHIP (publish from VDON directly to Twitch)</td><td><a href="https://vdo.ninja/alpha/whip">https://vdo.ninja/alpha/whip</a></td></tr></tbody></table>
+<table><thead><tr><th width="394">Tool</th><th>URL</th></tr></thead><tbody><tr><td>Device Support</td><td><a href="https://vdo.ninja/supports">https://vdo.ninja/supports</a></td></tr><tr><td>Device IDs</td><td><a href="https://vdo.ninja/devices">https://vdo.ninja/devices</a></td></tr><tr><td>Electron</td><td><a href="https://vdo.ninja/electron">https://vdo.ninja/electron</a></td></tr><tr><td>Video streaming quality test</td><td><a href="https://vdo.ninja/speedtest">https://vdo.ninja/speedtest</a></td></tr><tr><td>Remote Monitor</td><td><a href="https://vdo.ninja/monitor">https://vdo.ninja/monitor</a></td></tr><tr><td>Companion</td><td><a href="https://companion.vdo.ninja/">https://companion.vdo.ninja/</a></td></tr><tr><td>MIDI Controller App</td><td><a href="https://vdo.ninja/alpha/remotemidi">https://vdo.ninja/alpha/remotemidi</a></td></tr><tr><td>API / IFRAME sandbox page for developer</td><td><a href="https://vdo.ninja/alpha/iframe">https://vdo.ninja/alpha/iframe</a></td></tr><tr><td>WHIP (publish from VDON directly to Twitch)</td><td><a href="https://vdo.ninja/alpha/whip">https://vdo.ninja/alpha/whip</a></td></tr></tbody></table>
 ---
 description: Focus on ease of use and high-bitrate / e-sports streams
 ---
@@ -21791,7 +21834,7 @@ or for example
 If running from Windows command prompt, any ampersand "&" characters will need to be escaped with a "^" character, as seen below:
 
 ```
-C:\Users\Steve\Desktop>elecap -t feed2 --url https://vdo.ninja/?view=ePz9hnx^&scene^&codec=h264^&room=SOMETHINGTEST123
+C:\path\to\ElectronCapture>elecap -t feed2 --url https://vdo.ninja/?view=ePz9hnx^&scene^&codec=h264^&room=SOMETHINGTEST123
 ```
 
 You can also use it like this, if you are in the same folder as the app itself:

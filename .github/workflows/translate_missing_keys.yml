@@ -12,9 +12,9 @@ on:
         required: true
         default: "50"
       models:
-        description: "Comma-separated OpenCode Zen model fallback chain"
+        description: "Model chain: auto for current free models then inexpensive Go fallbacks"
         required: true
-        default: "deepseek-v4-flash-free,nemotron-3-super-free,big-pickle,minimax-m2.7"
+        default: "auto"
       dry_run:
         description: "Run without writing translation files"
         required: true
@@ -26,20 +26,21 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: read-all
 
 jobs:
   translate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "20"
 
@@ -47,7 +48,7 @@ jobs:
         env:
           OC_API_KEY: ${{ secrets.OC_API_KEY }}
           TRANSLATION_API_PROVIDER: opencode
-          TRANSLATION_API_URL: https://opencode.ai/zen/v1/chat/completions
+          TRANSLATION_API_URL: https://opencode.ai/zen/go/v1/chat/completions
           TRANSLATION_MODELS: ${{ inputs.models }}
           TARGET_LANGUAGES: ${{ inputs.target_languages }}
           MAX_TRANSLATION_KEYS: ${{ inputs.max_keys }}
@@ -57,14 +58,14 @@ jobs:
 
       - name: Create draft pull request
         if: ${{ !inputs.dry_run }}
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           commit-message: "Generate missing translations"
           branch: generated_missing_translations
           delete-branch: true
           title: "[VDONinja Bot] Generated missing translations"
           body: |
-            Generated missing translation keys using OpenCode Zen.
+            Generated missing translation keys using OpenCode (free models, then Go).
 
             - Model chain: `${{ inputs.models }}`
             - Target languages: `${{ inputs.target_languages }}`

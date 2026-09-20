@@ -14,7 +14,7 @@
 		<meta name="robots" content="index, follow" />
 		<meta name="author" content="Steve Seguin" />
 		<meta name="copyright" content="&copy; 2024 Steve Seguin" />
-		<meta name="license" content="https://github.com/steveseguin/vdo.ninja/LICENSE.md" />
+		<meta name="license" content="https://github.com/steveseguin/vdo.ninja/blob/master/LICENSE" />
 		<meta name="sourcecode" content="https://github.com/steveseguin/vdo.ninja" />
 		<meta name="theme-color" content="#0f131d" />
 		<link rel="canonical" href="https://vdo.ninja/speedtest.html" />
@@ -329,7 +329,9 @@
 					streamID = urlParams.get("sid");
 				}
 				
-				document.getElementById("remote").innerHTML = "<a style='color:#CCC' target='_blank' href='./monitor?sid="+streamID+"'>Remote Monitoring Link</a><br />";
+				var remoteLinkContainer = document.getElementById("remote");
+				remoteLinkContainer.innerHTML = "<a style='color:#CCC' target='_blank'>Remote Monitoring Link</a><br />";
+				remoteLinkContainer.querySelector("a").href = "./monitor?sid=" + streamID;
 
 				var iframe = document.createElement("iframe");
 				var iframeContainer = document.createElement("span");
@@ -343,9 +345,9 @@
 				srcString = appendSpeedtestParams(srcString, speedtestPublisherParams);
 				srcString += "&"+testType+"&audiodevice=0&fullscreen&transparent&darkmode&remote&speedtest="+zone;
 				
-				if (urlParams.has("turn")) {
-					srcString = srcString + "&turn=" + urlParams.get("turn");
-				}
+				urlParams.getAll("turn").forEach(function (turnvalue) {
+					srcString = srcString + "&turn=" + encodeURIComponent(turnvalue);
+				});
 
 				// we are changing some text on page load, just to demonstrate what's possible.
 				iframe.onload = function (e) {
@@ -388,9 +390,9 @@
 				var srcString = "./?view=" + streamID + "&cleanish&noaudio&scale=0&speedtest="+zone; // No TURN servers set on the reciever. Don't want to query for TURN servers needlessly.
 				srcString = appendSpeedtestParams(srcString, speedtestViewerParams);
 
-				if (urlParams.has("turn")) {
-					srcString = srcString + "&turn=" + urlParams.get("turn");
-				}
+				urlParams.getAll("turn").forEach(function (turnvalue) {
+					srcString = srcString + "&turn=" + encodeURIComponent(turnvalue);
+				});
 
 				if (urlParams.has("buffer")) {
 					srcString = srcString + "&buffer=" + urlParams.get("buffer");
